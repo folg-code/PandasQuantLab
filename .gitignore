@@ -1,0 +1,81 @@
+# --- Python cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Distribution / Packaging ---
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- Virtual environments ---
+# (najczęściej spotykane nazwy)
+venv/
+.venv/
+env/
+.env/
+ENV/
+.virtualenv/
+
+# --- PyInstaller ---
+*.manifest
+*.spec
+
+# --- Installer logs ---
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Unit test / coverage ---
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+pytest_cache/
+coverage.xml
+*.cover
+*.py,cover
+
+# --- Jupyter Notebook ---
+.ipynb_checkpoints
+**/.ipynb_checkpoints
+
+# --- mypy ---
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# --- Pyre type checker ---
+.pyre/
+
+# --- Pytype ---
+.pytype/
+
+# --- Cython debug builds ---
+cython_debug/
+
+# --- Django / Flask / FastAPI ---
+*.log
+local_settings.py
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Misc ---
+*.DS_Store
+Thumbs.db
