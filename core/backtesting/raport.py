@@ -21,6 +21,7 @@ class BacktestReporter:
         self.signals = signals
         self.initial_balance = initial_balance
 
+        self._compute_equity_curve()
         self._prepare_trades()
 
     # ------------------------------------------------------------------
@@ -31,7 +32,7 @@ class BacktestReporter:
             "symbol", "entry_time", "exit_time",
             "entry_tag", "exit_tag",
             "pnl_usd", "returns",
-            "duration", "capital"
+            "duration"
         ]
         for c in required_cols:
             if c not in self.trades.columns:
@@ -41,8 +42,20 @@ class BacktestReporter:
         self.trades["entry_tag"] = self.trades["entry_tag"].fillna("UNKNOWN")
         self.trades["exit_tag"] = self.trades["exit_tag"].fillna("UNKNOWN")
 
-        if "tp1_hit" not in self.trades.columns:
-            self.trades["tp1_hit"] = False
+
+    def _compute_equity_curve(self):
+        # Sortowanie po czasie wyjścia
+        self.trades = self.trades.sort_values(by="exit_time").reset_index(drop=True)
+
+        # Equity curve wektorowo
+        self.trades["equity"] = self.initial_balance + self.trades["pnl_usd"].cumsum()
+
+        # Maksimum, minimum i drawdown
+        self.trades["running_max"] = self.trades["equity"].cummax()
+        self.trades["drawdown"] = self.trades["running_max"] - self.trades["equity"]
+        self.max_balance = self.trades["equity"].max()
+        self.min_balance = self.trades["equity"].min()
+        self.max_drawdown = self.trades["drawdown"].max()
 
     # ------------------------------------------------------------------
     # CORE AGGREGATION LOGIC
@@ -94,57 +107,58 @@ class BacktestReporter:
     # GENERIC GROUP TABLE
     # ------------------------------------------------------------------
     def _print_group_table(self, title: str, group_col: str, df: pd.DataFrame):
-        table = Table(title=title, show_lines=False)
-
-        headers = [
-            group_col.upper(), "Trades", "Avg Profit %",
-            "Tot Profit USD", "Tot Profit %",
-            "Avg Duration", "Win", "Draw", "Loss",
-            "Win%", "Avg Winner", "Avg Losser", "exp"
-        ]
-
-        for h in headers:
-            table.add_column(h, justify="right")
+        self.console.rule(f"[bold yellow]{title}[/bold yellow]")
 
         total_df = []
+        stats_list = []
 
+        # grupowanie i agregacja
         for name, g in df.groupby(group_col):
             stats = self._aggregate_trades(g)
+            stats["name"] = name
+            stats_list.append(stats)
             total_df.append(g)
 
+        if not stats_list:
+            print("⚠️ Brak danych do wyświetlenia.")
+            return
+
+        # sortowanie po tot_profit_usd malejąco
+        stats_list = sorted(stats_list, key=lambda x: x["tot_profit_usd"], reverse=True)
+
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column(str(group_col))
+        table.add_column("Trades", justify="right")
+        table.add_column("Tot Profit USD", justify="right")
+        table.add_column("Tot Profit %", justify="right")
+        table.add_column("Avg Duration", justify="center")
+        table.add_column("Win", justify="right")
+        table.add_column("Draw", justify="right")
+        table.add_column("Loss", justify="right")
+        table.add_column("Win %", justify="right")
+        table.add_column("Avg Winner", justify="right")
+        table.add_column("Avg Losser", justify="right")
+        table.add_column("Exp", justify="right")
+
+        # dodanie wierszy do tabeli
+        for stats in stats_list:
+            # formatowanie avg_duration w HH:MM:SS
+            avg_duration_str = str(pd.to_timedelta(stats["avg_duration"], unit='s')).split('.')[0]
+
             table.add_row(
-                str(name),
+                str(stats["name"]),
                 f"{stats['trades']}",
-                f"{stats['avg_profit_pct']:.4f}",
                 f"{stats['tot_profit_usd']:.3f}",
                 f"{stats['tot_profit_pct']:.2f}",
-                str(stats["avg_duration"]),
+                avg_duration_str,
                 f"{stats['win']}",
                 f"{stats['draw']}",
                 f"{stats['loss']}",
                 f"{stats['win_pct']:.1f}",
                 f"{stats['avg_winner']:.2f}",
                 f"{stats['avg_losser']:.2f}",
-                f"{stats['exp']:.2f}",
+                f"{stats['exp']:.2f}"
             )
-
-        total = self._aggregate_trades(pd.concat(total_df))
-
-        table.add_row(
-            "TOTAL",
-            f"{total['trades']}",
-            f"{total['avg_profit_pct']:.4f}",
-            f"{total['tot_profit_usd']:.3f}",
-            f"{total['tot_profit_pct']:.2f}",
-            str(total["avg_duration"]),
-            f"{total['win']}",
-            f"{total['draw']}",
-            f"{total['loss']}",
-            f"{total['win_pct']:.1f}",
-            f"{total['avg_winner']:.2f}",
-            f"{total['avg_losser']:.2f}",
-            f"{total['exp']:.2f}",
-        )
 
         self.console.print(table)
 
@@ -158,7 +172,7 @@ class BacktestReporter:
         days = max((end - start).days, 1)
         trades_per_day = total_trades / days
 
-        final_balance = t["capital"].iloc[-1]
+        final_balance = t["equity"].iloc[-1]
         absolute_profit = final_balance - self.initial_balance
         total_profit_pct = (final_balance / self.initial_balance - 1) * 100
         cagr = ((final_balance / self.initial_balance) ** (365 / days) - 1) * 100
@@ -167,7 +181,7 @@ class BacktestReporter:
         max_daily_loss = daily_returns.min()
         max_daily_loss_pct = max_daily_loss / self.initial_balance * 100
 
-        equity = t["capital"]
+        equity = t["equity"]
         max_balance = equity.cummax()
         drawdown = max_balance - equity
         max_dd = drawdown.max()
@@ -218,7 +232,7 @@ class BacktestReporter:
         self._print_group_table("EXIT REASON STATS", "exit_tag", self.trades)
 
     def print_tp1_entry_stats(self):
-        df = self.trades[self.trades["tp1_hit"]]
+        df = self.trades[self.trades['tp1_price'].notna()]
         self._print_group_table(
             "ENTER TAG STATS for trades that HIT TP1",
             "entry_tag",
@@ -226,7 +240,7 @@ class BacktestReporter:
         )
 
     def print_tp1_exit_stats(self):
-        df = self.trades[self.trades["tp1_hit"]]
+        df = self.trades[self.trades['tp1_price'].notna()]
         self._print_group_table(
             "EXIT STATS for trades that HIT TP1",
             "exit_tag",
