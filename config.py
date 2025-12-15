@@ -1,46 +1,47 @@
 import MetaTrader5 as mt5
 from zoneinfo import ZoneInfo  # Python 3.9+
-
-
-
 SERVER_TIMEZONE = ZoneInfo("UTC")
 
 MODE = "BACKTEST"
+
 # ====== Strategia =====
 strategy = "Poi_Sessions"
 
 # === Parametry rynku ===
 SYMBOLS = [
     'GOLD',
-    'EUGERMANY40', 'US500', 'USTECH100',
-    'GBPJPY', 'EURJPY', 'EURGBP', 'EURCHF', 'USDPLN',
-    'GBPUSD', 'EURUSD', 'AUDUSD', 'NZDUSD', 'USDCHF','USDCAD','USDJPY',
-    'BTC/USD', 'ETH/USD'
+    #'EUGERMANY40', 'US500', 'USTECH100',
+    #'GBPJPY', 'EURJPY', 'EURGBP', 'EURCHF', 'USDPLN',
+    #'GBPUSD', 'EURUSD', 'AUDUSD', 'NZDUSD', 'USDCHF','USDCAD','USDJPY',
+    #'BTC/USD', 'ETH/USD'
 ]
 TIMEFRAME = 'M5'
 TIMERANGE = {
-    'start': '2025-01-01',
-    'end': '2025-12-03'
+    'start': '2025-12-05',
+    'end': '2025-12-09',
 }
+
+STARTUP_CANDLES = 600
+
 # === Kapitał początkowy ===
 INITIAL_BALANCE = 10_000.0  # USD
+
 # === Parametry strategii ===
 SLIPPAGE = 0.00
-SL_PCT = 0.005    # SL = 0.1%
-TP_PCT = 0.025    # TP = 0.2%s
+
+RISK_PER_TRADE = 0.005
 INITIAL_SIZE = 0.1
 MAX_SIZE = 3.0
-SINGLE_POSIOTION_MODE = True
 
-# Czy używać niestandardowych SL/TP (np. na bazie ATR)
-USE_CUSTOM_SL_TP = True
+CANDLE_SLEEP = 300
+
+
 # === Inne opcje ===
-PLOT_TRADES = True
-PLOT_EACH_SYMBOL = True
 SAVE_TRADES_CSV = True
 
-##long ={"PA__MAD_" : "PA__C__MAD_", "PA__PA_H1__C__MAD_"}
-#not_long = {"PA_H1_MAU"}
+TELEGRAM_TOKEN = '7780127253:AAEJdRLJfo5jc5Ys-hx0FtxAXqYKvBd4v_0'
+TELEGRAM_CHAT_ID = '5339523184'
+TELEGRAM_CHANNEL_ID = '-1002563533470'
 
 TICK_VALUE = 10  # Dla EURUSD 1 lot = $10/pips
 TIMEFRAME_MAP = {
@@ -54,3 +55,19 @@ TIMEFRAME_MAP = {
     "W1": mt5.TIMEFRAME_W1,
     "MN1": mt5.TIMEFRAME_MN1
 }
+
+# ile danych REALNIE potrzebujemy per TF
+LOOKBACK_CONFIG = {
+    "M1": "24h",
+    "M5": "7d",
+    "H1": "30d",
+    "H4": "180d",
+}
+
+lookbacks = {
+    "M1": 24 * 60,  # 24h w minutach -> 1440 świec
+    "M5": 7 * 24 * 12,  # 7 dni po 12 świec na godzinę (5min TF)
+    "H1": 30 * 24,  # 1 miesiąc po 30 dni (1 świeca na godzinę)
+    "H4": 180 * 6  # 6 miesięcy po 180 dni * 1 świeca na 4h
+}
+
