@@ -1,14 +1,10 @@
-import time
-
 import numpy as np
 import pandas as pd
 import talib.abstract as ta
 
-from Strategies.BaseStrategy import BaseStrategy
-from Strategies.Mixins import InformativeStrategyMixin
+from core.strategy.BaseStrategy import BaseStrategy
 from TechnicalAnalysis.Indicators import indicators as qtpylib
 from Strategies.utils.decorators import informative
-from Strategies.utils.df_trimmer import trim_all_dataframes
 from TechnicalAnalysis.Indicators.indicators import candlestick_confirmation
 from TechnicalAnalysis.PointOfInterestSMC.core import SmartMoneyConcepts
 from TechnicalAnalysis.PriceAction_Fibbonaci.core import PriceStructureDetector
@@ -152,31 +148,29 @@ class PoiSessions(BaseStrategy):
         # --- 🔹 5. Maski logiczne ---
         long_mask = (
                 #(df["sessions_signal"] == "long") &
-                #(df["price_action_signal"] == "long") &
-                ((df["sr_signal"] == "short")
-                # | (df["pa_fake_break_signal"] == "long")
-                 ) &
+                (df["price_action_signal"] == "long") &
+                #((df["sr_signal"] == "short")
+                #(df["pa_fake_break_signal"] == "long") &
                 #((df["session_bias"] == "bullish") | (df["prev_day_direction"] == "bullish")) &
                 (df['candle_bullish'].notna()) &
-                #((df["htf_long_active"].apply(len) > 0)
-                # | (df["ltf_long_active"].apply(len) > 0)
-                #)
+                ((df["htf_long_active"].apply(len) > 0)
+                 | (df["ltf_long_active"].apply(len) > 0)
+                ) &
                 (df['low_conf'] == True)
         )
 
         short_mask = (
                 #(df["sessions_signal"] == "short") &
-                #(df["price_action_signal"] == "short") &
-                ((df["sr_signal"] == "long")
-                 #| (df["pa_fake_break_signal"] == "short")
-                 ) &
+                (df["price_action_signal"] == "short") &
+                #((df["sr_signal"] == "long")
+                #(df["pa_fake_break_signal"] == "short") &
                 #((df["session_bias"] == "bearish") | (df["prev_day_direction"] == "bearish")) &
                 (df['candle_bearish'].notna()) &
-                (df['low_conf'] == True)
+                (df['low_conf'] == True)&
 
-                #((df["htf_short_active"].apply(len) > 0)
-                # | (df["ltf_short_active"].apply(len) > 0)
-                 #)
+                ((df["htf_short_active"].apply(len) > 0)
+                 | (df["ltf_short_active"].apply(len) > 0)
+                 )
         )
 
         # --- 🔹 6. Generowanie sygnałów + scoring ---
@@ -189,14 +183,14 @@ class PoiSessions(BaseStrategy):
                 row["candle_bullish"] if direction == "long" else row["candle_bearish"]
             )
             tag = (#f"{row['session_context']}"
-                   #f"__{row['price_action_context']}"
+                   f"__{row['price_action_context']}"
                    #f"__{row['sessions_signal']}"
                     #f"__{row['pa_fake_break_context']}"
-                    f"__{row['sr_context']}"
+                    #f"__{row['sr_context']}"
                    #f"__{row['session_bias']}"
-                   #f"__HTF:{'-'.join(htf)}"
-                   #f"__LTF:{'-'.join(ltf)}"
-                   #f"__{candle_context}"
+                   f"__HTF:{'-'.join(htf)}"
+                   f"__LTF:{'-'.join(ltf)}"
+                   f"__{candle_context}"
             )
             return {"direction": direction, "tag": tag}, score
 

@@ -1,4 +1,3 @@
-from functools import wraps
 
 def informative(timeframe):
     def decorator(func):
