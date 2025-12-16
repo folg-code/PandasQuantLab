@@ -6,7 +6,7 @@ import pandas as pd
 
 import config
 from config import TIMEFRAME_MAP
-from core.live_trading import parse_lookback
+from core.live_trading.utils import parse_lookback
 
 
 class BaseStrategy:

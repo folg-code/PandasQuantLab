@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import MetaTrader5 as mt5
 
-from Strategies.universal.position_sizer import position_sizer
+from core.utils.position_sizer import position_sizer
 from core.live_trading.file_manager import load_active_trades, load_blocked_tags, save_active_trades, mark_tp1_hit
 from core.live_trading.trade_executor import send_order, close_position, modify_stop_loss
 
