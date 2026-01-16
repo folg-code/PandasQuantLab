@@ -1,4 +1,4 @@
-from core.data_backends.mt5_backend import MT5Backend
+from core.data_backends.mt5_provider import MT5Backend
 from core.data_backends.dukascopy_backend import DukascopyBackend
 
 def create_backend(name: str):
