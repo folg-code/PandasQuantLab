@@ -24,5 +24,4 @@ class TradeExitResult:
     tp1_price: Optional[float] = None
     tp1_time: Optional[datetime] = None
 
-    pnl_usd: Optional[float] = None
-    returns: Optional[float] = None
+    tp1_pnl: float = 0.0

@@ -136,7 +136,7 @@ class Backtester:
                     time_arr,
                 )
 
-                exit_result, legacy = ExitProcessor.process(
+                exit_result = ExitProcessor.process(
                     direction=direction,
                     entry_price=entry_price,
                     exit_price=exit_price,
@@ -146,11 +146,8 @@ class Backtester:
                     tp1_price=tp1_price,
                     tp1_time=tp1_time,
                     sl=sl,
-                    sl_tag=sl_tag,
                     tp1=tp1,
-                    tp1_tag=tp1_tag,
                     tp2=tp2,
-                    tp2_tag=tp2_tag,
                     position_size=position_size,
                     point_size=point_size,
                     pip_value=pip_value,
@@ -169,8 +166,6 @@ class Backtester:
                     point_size=point_size,
                     pip_value=pip_value,
                     exit_result=exit_result,
-                    legacy_exit_reason=legacy["exit_reason"],
-                    tp1_pnl=legacy["tp1_pnl"],
                 )
 
                 trades.append(trade_dict)

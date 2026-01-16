@@ -21,8 +21,6 @@ class TradeFactory:
         point_size: float,
         pip_value: float,
         exit_result: TradeExitResult,
-        legacy_exit_reason: str,
-        tp1_pnl: float,
     ) -> dict:
         """
         Build Trade, apply exit result and return serialized dict.
@@ -43,17 +41,6 @@ class TradeFactory:
             pip_value=pip_value,
         )
 
-        # apply TP1 facts
-        trade.tp1_executed = exit_result.tp1_executed
-        trade.tp1_price = exit_result.tp1_price
-        trade.tp1_time = exit_result.tp1_time
-        trade.tp1_pnl = tp1_pnl
-
-        # close trade (still legacy exit reason for now)
-        trade.close_trade(
-            exit_result.exit_price,
-            exit_result.exit_time,
-            legacy_exit_reason,
-        )
+        trade.close_trade(exit_result)
 
         return trade.to_dict()

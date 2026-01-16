@@ -1,6 +1,8 @@
 from typing import Optional
 import numpy as np
 
+from core.domain.trade_exit import TradeExitResult
+
 
 class Trade:
     def __init__(
@@ -42,10 +44,16 @@ class Trade:
         self.returns = 0.0
         self.duration_sec = 0.0
 
-    def close_trade(self, exit_price, exit_time, exit_reason):
-        self.exit_price = exit_price
-        self.exit_time = exit_time
-        self.exit_reason = exit_reason
+    def close_trade(self, exit_result: TradeExitResult):
+        self.exit_price = exit_result.exit_price
+        self.exit_time = exit_result.exit_time
+        self.exit_reason = exit_result.reason.value
+
+        self.tp1_executed = exit_result.tp1_executed
+        self.tp1_price = exit_result.tp1_price
+        self.tp1_time = exit_result.tp1_time
+        self.tp1_pnl = exit_result.tp1_pnl
+
         self._compute_pnl()
         self._compute_returns()
         self._compute_duration()
