@@ -63,7 +63,7 @@ class LiveEngine:
         # exits
         self.position_manager.on_tick(market_state=market_state)
 
-        # entry
+        # entry — ONLY TradePlan
         plan = self.tradeplan_provider()
         if plan is not None:
             self.position_manager.on_trade_plan(
