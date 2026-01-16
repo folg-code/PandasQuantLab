@@ -42,7 +42,12 @@ def signal_provider():
 
 
 repo = TradeRepo(data_dir="live_state_engine_test")
-adapter = MT5Adapter(dry_run=True)
+adapter = MT5Adapter(
+    login=12345678,
+    password="<PASSWORD>",
+    server="FTMO-Demo",
+    dry_run=False,
+)
 pm = PositionManager(repo, adapter)
 
 engine = LiveEngine(
