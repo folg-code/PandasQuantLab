@@ -1,8 +1,5 @@
 from typing import Optional
-
 import numpy as np
-
-from core.utils.position_sizer import get_pip_value, get_point_size
 
 
 class Trade:
