@@ -5,16 +5,18 @@ from datetime import datetime
 from typing import Dict, Any
 
 from core.live_trading_refactoring.trade_repo import TradeRepo
+from core.live_trading_refactoring.mt5_adapter import MT5Adapter
 
 
 class PositionManager:
     """
     Handles live trading decisions.
-    ENTRY ONLY (no exits yet).
+    ENTRY execution (no exits yet).
     """
 
-    def __init__(self, repo: TradeRepo):
+    def __init__(self, repo: TradeRepo, adapter: MT5Adapter):
         self.repo = repo
+        self.adapter = adapter
 
     # ==================================================
     # Public API
@@ -26,21 +28,28 @@ class PositionManager:
         signal: Dict[str, Any],
         market_state: Dict[str, Any] | None = None,
     ) -> None:
-        """
-        Handle entry signal.
-        Decides whether a new trade can be opened.
-        """
-
         symbol = signal["symbol"]
 
         # 1️⃣ Guard: already active position on symbol
         if self._has_active_position(symbol):
             return
 
-        # 2️⃣ Build trade_id (deterministic enough for live)
+        # 2️⃣ Build trade_id
         trade_id = self._generate_trade_id(signal)
 
-        # 3️⃣ Persist entry decision
+        # 3️⃣ Execute via adapter
+        exec_result = self.adapter.open_position(
+            symbol=symbol,
+            direction=signal["direction"],
+            volume=signal["volume"],
+            price=signal["entry_price"],
+            sl=signal["sl"],
+            tp=signal.get("tp2"),
+        )
+
+        ticket = exec_result.get("ticket")
+
+        # 4️⃣ Persist entry decision + execution info
         self.repo.record_entry(
             trade_id=trade_id,
             symbol=symbol,
@@ -52,6 +61,7 @@ class PositionManager:
             tp2=signal["tp2"],
             entry_time=signal.get("entry_time") or datetime.utcnow(),
             entry_tag=signal.get("entry_tag", ""),
+            ticket=ticket,
         )
 
     # ==================================================
@@ -63,8 +73,4 @@ class PositionManager:
         return any(trade["symbol"] == symbol for trade in active.values())
 
     def _generate_trade_id(self, signal: Dict[str, Any]) -> str:
-        """
-        Generate unique trade id.
-        UUID is fine for live.
-        """
         return f"LIVE_{signal['symbol']}_{uuid.uuid4().hex[:8]}"

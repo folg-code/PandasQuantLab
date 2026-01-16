@@ -73,26 +73,23 @@ class TradeRepo:
     # ==================================================
 
     def record_entry(
-        self,
-        *,
-        trade_id: str,
-        symbol: str,
-        direction: str,
-        entry_price: float,
-        volume: float,
-        sl: float,
-        tp1: float,
-        tp2: float,
-        entry_time: datetime,
-        entry_tag: str,
+            self,
+            *,
+            trade_id: str,
+            symbol: str,
+            direction: str,
+            entry_price: float,
+            volume: float,
+            sl: float,
+            tp1: float,
+            tp2: float,
+            entry_time: datetime,
+            entry_tag: str,
+            ticket: str | None = None,
     ) -> None:
-        """
-        Persist new active trade.
-        """
         active = self.load_active()
 
         if trade_id in active:
-            # idempotency guard
             return
 
         active[trade_id] = {
@@ -107,6 +104,7 @@ class TradeRepo:
             "tp1_executed": False,
             "entry_time": entry_time,
             "entry_tag": entry_tag,
+            "ticket": ticket,
         }
 
         self.save_active(active)
