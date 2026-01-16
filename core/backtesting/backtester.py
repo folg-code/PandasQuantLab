@@ -12,6 +12,8 @@ from core.domain.trade import Trade
 from core.domain.trade_exit import TradeExitResult
 from core.domain.execution import map_exit_code_to_reason
 from core.domain.trade_factory import TradeFactory
+from core.domain.exit_processor import ExitProcessor
+from core.domain.trade_factory import TradeFactory
 
 INSTRUMENT_META = {
     "EURUSD": {
@@ -38,33 +40,7 @@ class Backtester:
     def __init__(self, slippage: float = 0.0):
         self.slippage = slippage
 
-    def _build_trade_exit_result(
-            self,
-            *,
-            entry_price: float,
-            exit_price: float,
-            exit_time,
-            exit_code: int,
-            tp1_executed: bool,
-            tp1_price,
-            tp1_time,
-    ) -> TradeExitResult:
 
-        reason = map_exit_code_to_reason(
-            exit_code=exit_code,
-            tp1_executed=tp1_executed,
-            exit_price=exit_price,
-            entry_price=entry_price,
-        )
-
-        return TradeExitResult(
-            exit_price=exit_price,
-            exit_time=exit_time,
-            reason=reason,
-            tp1_executed=tp1_executed,
-            tp1_price=tp1_price if tp1_executed else None,
-            tp1_time=tp1_time if tp1_executed else None,
-        )
 
     def run_backtest(self, df: pd.DataFrame, symbol: Optional[str] = None) -> pd.DataFrame:
         """Backtest dla jednego symbolu lub wielu symboli."""
@@ -140,20 +116,6 @@ class Backtester:
                     pip_value=pip_value,
                 )
 
-                trade = Trade(
-                    symbol,
-                    direction,
-                    entry_time,
-                    entry_price,
-                    position_size,
-                    sl,
-                    tp1,
-                    tp2,
-                    entry_tag,
-                    point_size,
-                    pip_value,
-                )
-
                 (
                     exit_price,
                     exit_time,
@@ -174,10 +136,8 @@ class Backtester:
                     time_arr,
                 )
 
-                # ==================================================
-                # NEW: domain exit result (FACT)
-                # ==================================================
-                exit_result = self._build_trade_exit_result(
+                exit_result, legacy = ExitProcessor.process(
+                    direction=direction,
                     entry_price=entry_price,
                     exit_price=exit_price,
                     exit_time=exit_time,
@@ -185,14 +145,6 @@ class Backtester:
                     tp1_executed=tp1_exec,
                     tp1_price=tp1_price,
                     tp1_time=tp1_time,
-                )
-
-                # ==================================================
-                # TEMPORARY LEGACY BRIDGE (PnL + tags)
-                # ==================================================
-                legacy = self.process_trade_exit(
-                    direction=direction,
-                    entry_price=entry_price,
                     sl=sl,
                     sl_tag=sl_tag,
                     tp1=tp1,
@@ -202,13 +154,8 @@ class Backtester:
                     position_size=position_size,
                     point_size=point_size,
                     pip_value=pip_value,
-                    exit_price=exit_result.exit_price,
-                    exit_time=exit_result.exit_time,
-                    tp1_executed=exit_result.tp1_executed,
-                    tp1_time=exit_result.tp1_time,
                 )
 
-                # --- delegate trade creation ---
                 trade_dict = TradeFactory.create_trade(
                     symbol=symbol,
                     direction=direction,
