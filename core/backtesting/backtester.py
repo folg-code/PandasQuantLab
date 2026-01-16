@@ -8,7 +8,7 @@ import MetaTrader5 as mt5
 
 from core.backtesting.simulate_exit_numba import simulate_exit_numba
 from core.utils.position_sizer import position_sizer, position_sizer_fast
-from core.backtesting.trade import Trade
+from core.domain.trade import Trade
 
 INSTRUMENT_META = {
     "EURUSD": {
