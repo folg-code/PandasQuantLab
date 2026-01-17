@@ -2,7 +2,7 @@ from datetime import datetime
 from core.live_trading_refactoring.trade_repo import TradeRepo
 from core.live_trading_refactoring.position_manager import PositionManager
 from core.live_trading_refactoring.mt5_adapter import MT5Adapter
-from core.strategy.BaseStrategy import TradePlan, FixedExitPlan
+from core.strategy.trade_plan import TradePlan, FixedExitPlan
 
 repo = TradeRepo(data_dir="live_state_pm_exec_test")
 adapter = MT5Adapter(dry_run=True)

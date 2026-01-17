@@ -12,7 +12,7 @@ from core.domain.execution import map_exit_code_to_reason, EXIT_SL, EXIT_TP2, EX
 from core.domain.trade_exit import TradeExitResult, TradeExitReason
 from datetime import timedelta
 
-from core.strategy.BaseStrategy import TradePlan
+from core.strategy.trade_plan import TradePlan
 
 
 class PositionManager:

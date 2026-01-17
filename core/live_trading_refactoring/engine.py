@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Callable, Dict, Any, Iterable
 
 from core.live_trading_refactoring.position_manager import PositionManager
-from core.strategy.BaseStrategy import TradePlan
+from core.strategy.trade_plan  import TradePlan
 
 
 class LiveEngine:

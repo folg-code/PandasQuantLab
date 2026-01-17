@@ -4,7 +4,7 @@ from core.live_trading_refactoring.trade_repo import TradeRepo
 from core.live_trading_refactoring.mt5_adapter import MT5Adapter
 
 from core.live_trading_refactoring.tests.mocks import market_data_provider_mock, signal_provider_mock_once
-from core.strategy.BaseStrategy import TradePlan, FixedExitPlan
+from core.strategy.trade_plan  import TradePlan, FixedExitPlan
 
 
 def test_live_engine_entry_dry_run(tmp_path):
