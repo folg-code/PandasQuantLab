@@ -8,8 +8,8 @@ from TechnicalAnalysis.Indicators import indicators as qtpylib
 from Strategies.utils.decorators import informative
 from TechnicalAnalysis.Indicators.indicators import candlestick_confirmation, keltner_channel
 from TechnicalAnalysis.PointOfInterestSMC.core import SmartMoneyConcepts
-from TechnicalAnalysis.PriceAction_Fibbonaci.core import IntradayMarketStructure
-from TechnicalAnalysis.Sessions.core import Sessions
+from TechnicalAnalysis.PriceAction_Fibbonaci.core import PriceStructureDetector
+from TechnicalAnalysis.SessionsSMC.core import SessionsSMC
 from time import perf_counter
 
 
@@ -23,7 +23,12 @@ def log_t(start, label):
 class PoiSessions(BaseStrategy):
 
     def __init__(self, df, symbol, startup_candle_count, provider):
-        super().__init__(df, symbol, startup_candle_count, provider)
+        super().__init__(
+            df=df,
+            symbol=symbol,
+            startup_candle_count=startup_candle_count,
+            provider=provider,
+        )
 
     @informative('M30')
     def populate_indicators_M30(self, df: pd.DataFrame):
@@ -61,29 +66,30 @@ class PoiSessions(BaseStrategy):
         #Sessions().apply(df)
 
         # --- price action HTF
-        IntradayMarketStructure().apply(df)
+        #IntradayMarketStructure().apply(df)
 
 
         # 🔥 SMC: TYLKO DETEKCJA STREF
-        self.htf_zones = SmartMoneyConcepts().detect_zones(
-            df,
-            tf="M30"
-        )
+        #self.htf_zones = SmartMoneyConcepts().detect_zones(
+        #    df,
+        #    tf="M30"
+        #)
 
-        df = Sessions.calculate_previous_ranges(df)
-        df = Sessions.calculate_sessions_ranges(df)
+        #df = Sessions.calculate_previous_ranges(df)
+       # df = Sessions.calculate_sessions_ranges(df)
 
         return df
 
     def populate_indicators(self):
+
+
 
         t0 = perf_counter()
         df = self.df.copy()
         df.sort_values("time", inplace=True)
         log_t(t0, "start / copy + sort")
 
-
-
+        print(df)
 
         # =====================================================
         # 1️⃣ PODSTAWY (tanie, używane wszędzie)

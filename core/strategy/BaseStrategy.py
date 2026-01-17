@@ -1,11 +1,8 @@
 import inspect
 import time
 from collections import defaultdict
-<<<<<<< HEAD
-=======
-from dataclasses import dataclass, field
-from typing import Optional, Literal, Union
->>>>>>> 724b670 (feat(strategy): introduce TradePlan-based strategy contract)
+
+from core.strategy.trade_plan import TradePlan, FixedExitPlan, ManagedExitPlan, TradeAction
 
 import pandas as pd
 
@@ -55,7 +52,14 @@ class BaseStrategy:
         "custom_stop_loss",
     ]
 
-    def __init__(self, df, symbol, startup_candle_count=600, provider=None):
+    def __init__(
+            self,
+            df,
+            symbol,
+            startup_candle_count=600,
+            provider=None,
+            strategy_config=None,
+    ):
         self.df = df.copy()
         self.symbol = symbol
         self.startup_candle_count = startup_candle_count
@@ -70,8 +74,8 @@ class BaseStrategy:
 
         self.htf_zones = None  # DataFrame stref HTF
         self.ltf_zones = None  # opcjonalnie, jeśli kiedyś zechcesz
-<<<<<<< HEAD
-=======
+
+
         self.strategy_config = strategy_config or {}
         self.validate_strategy_config()
 
@@ -165,7 +169,7 @@ class BaseStrategy:
         Called only for exit_mode='managed'.
         """
         return None
->>>>>>> 724b670 (feat(strategy): introduce TradePlan-based strategy contract)
+
 
     @classmethod
     def get_required_informatives(cls):
