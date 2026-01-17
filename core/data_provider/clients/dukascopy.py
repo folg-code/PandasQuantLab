@@ -1,3 +1,7 @@
+import subprocess
+import tempfile
+from pathlib import Path
+
 import pandas as pd
 from datetime import datetime
 from typing import Optional
@@ -7,64 +11,51 @@ from core.data_provider.exceptions import DataNotAvailable
 
 class DukascopyClient:
     """
-    Low-level Dukascopy OHLCV client.
+    Low-level Dukascopy OHLCV client using dukascopy-node (npx).
 
     Responsibilities:
-    - talk to Dukascopy data source (HTTP / binary)
-    - return raw OHLCV as pandas DataFrame
+    - invoke dukascopy-node CLI
+    - load CSV output
+    - return real OHLCV data
     - NO cache
-    - NO timeframe logic
-    - NO live/backtest logic
+    - NO fake data
     """
 
-    def __init__(self):
-        # tutaj w przyszłości:
-        # - base_url
-        # - auth
-        # - rate limiting
-        pass
+    def __init__(self, *, npx_cmd: str = "npx.cmd"):
+        self.npx_cmd = npx_cmd
+
+    # ==================================================
+    # Public API
+    # ==================================================
 
     def get_ohlcv(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        start: pd.Timestamp,
-        end: pd.Timestamp,
+            self,
+            *,
+            symbol: str,
+            timeframe: str,
+            start: pd.Timestamp,
+            end: pd.Timestamp,
     ) -> pd.DataFrame:
-        """
-        Fetch OHLCV data from Dukascopy.
 
-        Parameters
-        ----------
-        symbol : str
-        timeframe : str  (e.g. M1, M5, M15, H1)
-        start : UTC Timestamp
-        end   : UTC Timestamp
-
-        Returns
-        -------
-        pd.DataFrame with columns:
-        time, open, high, low, close, volume
-        """
-
-        start = self._ensure_utc(start)
-        end = self._ensure_utc(end)
+        start = self._to_utc(start)
+        end = self._to_utc(end)
 
         if start >= end:
             raise ValueError("start must be earlier than end")
 
-        # 🔴 TU NORMALNIE BYŁOBY PRAWDZIWE POBIERANIE
-        # Na razie: symulacja / placeholder logiczny
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workdir = Path(tmpdir)
 
-        df = self._download_stub(
-            symbol=symbol,
-            timeframe=timeframe,
-            start=start,
-            end=end,
-        )
+            csv_path = self._run_dukascopy_node(
+                symbol=symbol,
+                timeframe=timeframe,
+                start=start,
+                end=end,
+            )
 
-        if df is None or df.empty:
+            df = self._load_csv(csv_path)
+
+        if df.empty:
             raise DataNotAvailable(
                 f"No Dukascopy data for {symbol} {timeframe}"
             )
@@ -72,79 +63,142 @@ class DukascopyClient:
         return df
 
     # ==================================================
-    # Helpers
+    # Internal helpers
     # ==================================================
 
+    def _run_dukascopy_node(
+            self,
+            *,
+            symbol: str,
+            timeframe: str,
+            start: pd.Timestamp,
+            end: pd.Timestamp,
+    ) -> Path:
+        workdir = Path(tempfile.mkdtemp())
+        download_dir = workdir / "download"
+        download_dir.mkdir(exist_ok=True)
+
+        cmd = [
+            "npx.cmd",
+            "dukascopy-node",
+            "-i", symbol.lower(),
+            "-from", start.strftime("%Y-%m-%d"),
+            "-to", end.strftime("%Y-%m-%d"),
+            "-t", timeframe.lower(),
+            "-f", "csv",
+        ]
+
+        proc = subprocess.run(
+            cmd,
+            cwd=workdir,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+        if proc.returncode != 0:
+            raise DataNotAvailable(
+                f"Dukascopy CLI failed for {symbol} {timeframe}\n"
+                f"STDERR:\n{proc.stderr}"
+            )
+
+        # 🔑 SZUKAMY CSV W download/
+        csv_files = list(download_dir.glob("*.csv"))
+
+        if not csv_files:
+            raise DataNotAvailable(
+                f"Dukascopy CLI produced no CSV files for {symbol} {timeframe}\n"
+                f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+            )
+
+        # jeśli więcej niż jeden — bierzemy największy (najczęściej pełny zakres)
+        csv_path = max(csv_files, key=lambda p: p.stat().st_size)
+
+        if csv_path.stat().st_size == 0:
+            raise DataNotAvailable(
+                f"Dukascopy CSV is empty for {symbol} {timeframe}: {csv_path.name}"
+            )
+
+        return csv_path
+
+    def _load_csv(self, csv_path: Path) -> pd.DataFrame:
+        df = pd.read_csv(csv_path)
+        df.columns = [c.lower() for c in df.columns]
+
+        if "timestamp" in df.columns:
+            df["time"] = self.parse_dukascopy_time(df["timestamp"])
+        elif "time" in df.columns:
+            df["time"] = self.parse_dukascopy_time(df["time"])
+        else:
+            raise ValueError("No time/timestamp column in Dukascopy CSV")
+
+        # FX → brak realnego volume
+        df["volume"] = df.get("volume", 1.0)
+
+        return (
+            df[["time", "open", "high", "low", "close", "volume"]]
+            .sort_values("time")
+            .drop_duplicates("time")
+            .reset_index(drop=True)
+        )
+
+        # 2️⃣ OHLC
+        required_ohlc = {"open", "high", "low", "close"}
+        missing_ohlc = required_ohlc - set(df.columns)
+        if missing_ohlc:
+            raise ValueError(
+                f"Dukascopy CSV missing OHLC columns: {missing_ohlc}"
+            )
+
+        # 3️⃣ volume (FX has no volume → synthetic)
+        df["volume"] = 1.0
+
+        # 4️⃣ final shape
+        out = df[
+            ["time", "open", "high", "low", "close", "volume"]
+        ].copy()
+
+        # 5️⃣ sort & deduplicate
+        out = (
+            out.sort_values("time")
+            .drop_duplicates(subset="time", keep="last")
+            .reset_index(drop=True)
+        )
+
+        return out
+
+    def parse_dukascopy_time(self,series: pd.Series) -> pd.Series:
+        """
+        Dukascopy may return:
+        - ISO timestamps
+        - epoch milliseconds
+        - epoch microseconds
+        """
+
+        if series.dtype.kind in {"i", "u", "f"}:
+            max_val = series.max()
+
+            if max_val > 1e18:
+                # nanoseconds
+                return pd.to_datetime(series, unit="ns", utc=True)
+            elif max_val > 1e15:
+                # microseconds
+                return pd.to_datetime(series, unit="us", utc=True)
+            elif max_val > 1e12:
+                # milliseconds
+                return pd.to_datetime(series, unit="ms", utc=True)
+            else:
+                # seconds
+                return pd.to_datetime(series, unit="s", utc=True)
+
+        # fallback: string
+        return pd.to_datetime(series, utc=True)
+
+
     @staticmethod
-    def _ensure_utc(ts: pd.Timestamp) -> pd.Timestamp:
+    def _to_utc(ts: pd.Timestamp) -> pd.Timestamp:
         ts = pd.Timestamp(ts)
         if ts.tzinfo is None:
             return ts.tz_localize("UTC")
         return ts.tz_convert("UTC")
-
-    # ==================================================
-    # STUB (do zastąpienia realnym downloaderem)
-    # ==================================================
-
-    def _download_stub(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        start: pd.Timestamp,
-        end: pd.Timestamp,
-    ) -> pd.DataFrame:
-        """
-        Temporary stub.
-        Replace with real Dukascopy downloader.
-        """
-
-        # ⚠️ TYLKO DO TESTÓW
-        # Realna implementacja:
-        # - iteracja po miesiącach
-        # - binarki Dukascopy
-        # - resampling do OHLCV
-
-        times = pd.date_range(
-            start=start,
-            end=end,
-            freq=self._pandas_freq(timeframe),
-            inclusive="left",
-            tz="UTC",
-        )
-
-        if times.empty:
-            return pd.DataFrame()
-
-        df = pd.DataFrame(
-            {
-                "time": times,
-                "open": 1.0,
-                "high": 1.0,
-                "low": 1.0,
-                "close": 1.0,
-                "volume": 1.0,
-            }
-        )
-
-        return df
-
-    @staticmethod
-    def _pandas_freq(timeframe: str) -> str:
-        """
-        Convert Dukascopy timeframe to pandas frequency.
-        """
-        mapping = {
-            "M1": "1min",
-            "M5": "5min",
-            "M15": "15min",
-            "M30": "30min",
-            "H1": "1h",
-            "H4": "4h",
-            "D1": "1D",
-        }
-
-        try:
-            return mapping[timeframe]
-        except KeyError:
-            raise ValueError(f"Unsupported timeframe: {timeframe}")
