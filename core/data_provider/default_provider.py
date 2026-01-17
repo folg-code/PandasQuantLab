@@ -18,11 +18,10 @@ class DefaultOhlcvDataProvider(OhlcvDataProvider):
     """
     Default OHLCV data provider for BACKTEST mode.
 
-    Responsibilities:
-    - validate request
-    - load/store OHLCV cache (one file per symbol+timeframe)
-    - fetch missing data from backend
-    - return sliced OHLCV range
+    Characteristics:
+    - one cache file per (symbol, timeframe)
+    - cache is extended ONLY on edges (no internal gap filling)
+    - real market gaps (weekends, holidays) are preserved
     """
 
     def __init__(
@@ -45,31 +44,40 @@ class DefaultOhlcvDataProvider(OhlcvDataProvider):
 
     @staticmethod
     def _validate_output(df: pd.DataFrame) -> pd.DataFrame:
-        required_columns = [
-            "time",
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-        ]
-
-        missing = set(required_columns) - set(df.columns)
+        required = ["time", "open", "high", "low", "close", "volume"]
+        missing = set(required) - set(df.columns)
         if missing:
-            raise ValueError(
-                f"OHLCV data missing required columns: {missing}"
-            )
+            raise ValueError(f"OHLCV missing columns: {missing}")
 
         df = df.copy()
         df["time"] = pd.to_datetime(df["time"], utc=True)
 
-        df = (
+        return (
             df.sort_values("time")
             .drop_duplicates(subset="time", keep="last")
             .reset_index(drop=True)
+        )[required]
+
+    def _fetch(
+        self,
+        symbol: str,
+        timeframe: str,
+        start: pd.Timestamp,
+        end: pd.Timestamp,
+    ) -> pd.DataFrame:
+        df = self.backend.fetch_ohlcv(
+            symbol=symbol,
+            timeframe=timeframe,
+            start=start,
+            end=end,
         )
 
-        return df[required_columns]
+        if df is None or df.empty:
+            raise DataNotAvailable(
+                f"No OHLCV fetched for {symbol} {timeframe}"
+            )
+
+        return self._validate_output(df)
 
     # ---------- main API ----------
 
@@ -83,17 +91,11 @@ class DefaultOhlcvDataProvider(OhlcvDataProvider):
         lookback: pd.Timedelta | None = None,
     ) -> pd.DataFrame:
         # 1️⃣ validate request
-        validate_request(
-            start=start,
-            end=end,
-            lookback=lookback,
-        )
+        validate_request(start=start, end=end, lookback=lookback)
 
-        # 2️⃣ backtest only
         if lookback is not None:
             raise InvalidDataRequest(
-                "Lookback mode is not supported in DefaultOhlcvDataProvider "
-                "(backtest only)."
+                "Lookback mode is not supported in DefaultOhlcvDataProvider"
             )
 
         assert start is not None and end is not None
@@ -101,38 +103,49 @@ class DefaultOhlcvDataProvider(OhlcvDataProvider):
         start = self._to_utc(start)
         end = self._to_utc(end)
 
-        # 3️⃣ load cache if exists
+        # 2️⃣ load cache if exists
         if self.cache.has(symbol, timeframe):
-            df = self.cache.load(symbol, timeframe)
-        else:
-            df = pd.DataFrame()
-
-        # 4️⃣ fetch if cache empty
-        if df.empty:
-            fetched = self.backend.fetch_ohlcv(
-                symbol=symbol,
-                timeframe=timeframe,
-                start=start,
-                end=end,
+            cached = self._validate_output(
+                self.cache.load(symbol, timeframe)
             )
+        else:
+            cached = pd.DataFrame()
 
-            if fetched is None or fetched.empty:
-                raise DataNotAvailable(
-                    f"No OHLCV data for {symbol} {timeframe}"
+        pieces: list[pd.DataFrame] = []
+
+        # 3️⃣ determine missing EDGES only
+        if cached.empty:
+            pieces.append(self._fetch(symbol, timeframe, start, end))
+        else:
+            cache_start = cached["time"].min()
+            cache_end = cached["time"].max()
+
+            if start < cache_start:
+                pieces.append(
+                    self._fetch(symbol, timeframe, start, cache_start)
                 )
 
-            df = self._validate_output(fetched)
+            if end > cache_end:
+                pieces.append(
+                    self._fetch(symbol, timeframe, cache_end, end)
+                )
 
-            # persist full cache
-            self.cache.save(symbol, timeframe, df)
+            pieces.append(cached)
 
-        # 5️⃣ slice requested range
-        mask = (df["time"] >= start) & (df["time"] <= end)
-        result = df.loc[mask].reset_index(drop=True)
+        # 4️⃣ merge + persist full cache
+        merged = self._validate_output(
+            pd.concat(pieces, ignore_index=True)
+        )
+
+        self.cache.save(symbol, timeframe, merged)
+
+        # 5️⃣ slice requested window
+        mask = (merged["time"] >= start) & (merged["time"] <= end)
+        result = merged.loc[mask].reset_index(drop=True)
 
         if result.empty:
             raise DataNotAvailable(
-                f"No OHLCV data in requested range for {symbol} {timeframe}"
+                f"No OHLCV data for {symbol} {timeframe} in requested range"
             )
 
         return result
