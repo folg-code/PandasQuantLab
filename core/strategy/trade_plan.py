@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Union, Dict, Any, Literal
 
 
@@ -64,7 +64,7 @@ class TradePlan:
     exit_plan: Union[FixedExitPlan, ManagedExitPlan]
 
     strategy_name: str
-    strategy_config: Dict[str, Any]
+    strategy_config: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass(frozen=True)
 class TradeAction:

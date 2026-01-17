@@ -7,7 +7,6 @@ from core.strategy.trade_plan import TradePlan, FixedExitPlan, ManagedExitPlan, 
 import pandas as pd
 
 import config
-from config import TIMEFRAME_MAP
 from core.backtesting.plotting.zones import ZoneView
 from core.live_trading.utils import parse_lookback
 from core.strategy.exception import StrategyConfigError
@@ -229,7 +228,7 @@ class BaseStrategy:
             lb_str = config.LOOKBACK_CONFIG.get(tf, "7d")  # default 7 dni
             lookback = parse_lookback(tf, lb_str)
 
-            tf_mt5 = TIMEFRAME_MAP.get(tf)
+            tf_mt5 = config.TIMEFRAME_MAP.get(tf)
             if tf_mt5 is None:
                 raise ValueError(f"Niepoprawny timeframe: {tf}")
 

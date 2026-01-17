@@ -1,5 +1,5 @@
 import mt5
-from Strategies.Poi_Sessions import PoiSessions
+
 
 MARKET_DATA_PATH = "market_data"
 
@@ -40,7 +40,7 @@ BACKTEST_WINDOWS =  {
 }
 
 
-STRATEGY_CLASS = PoiSessions
+STRATEGY_CLASS = "Hts"
 STARTUP_CANDLE_COUNT = 600
 SAVE_TRADES_CSV = False
 
@@ -49,7 +49,7 @@ SERVER_TIMEZONE = "UTC"
 SYMBOLS = [
     "EURUSD"
 ]
-TIMEFRAME = "M5"
+TIMEFRAME = "M1"
 
 # BACKTEST
 BACKTEST_DATA_BACKEND = "dukascopy"   # lub "csv"
