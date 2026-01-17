@@ -151,7 +151,6 @@ class BaseStrategy:
             symbol=self.symbol,
             direction=direction,
             entry_price=row["close"],
-            volume=cfg.get("VOLUME", 0.0),
             entry_tag=signal.get("tag", ""),
             exit_plan=exit_plan,
             strategy_name=type(self).__name__,

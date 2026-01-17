@@ -6,13 +6,17 @@ import time
 import MetaTrader5 as mt5
 import pandas as pd
 
+from core.live_trading_refactoring import strategy_adapter
 from core.live_trading_refactoring.engine import LiveEngine
 from core.live_trading_refactoring.strategy_adapter import LiveStrategyAdapter
 
+print(">>> LiveStrategyAdapter =", LiveStrategyAdapter)
+print(">>> methods =", dir(LiveStrategyAdapter))
+
 # === CONFIG ==================================================
 
-SYMBOL = "EURUSD"
-TIMEFRAME = "M5"
+SYMBOL = "BTCUSD"
+TIMEFRAME = "M1"
 BARS = 500
 
 STRATEGY_NAME = "Hts"   # np. "liquidity_sweep"
@@ -118,12 +122,22 @@ def main():
 
     # --- providers for engine ---
     def market_data_provider():
-        state = fetch_market_state(SYMBOL, TIMEFRAME, BARS)
-        if state is None:
+        rates = mt5.copy_rates_from_pos(
+            SYMBOL,
+            TIMEFRAME_MAP[TIMEFRAME],
+            0,
+            2,
+        )
+
+        if rates is None or len(rates) < 2:
             return None
+
+        last_closed = rates[-2]  # 🔑 zamknięta świeca
+
         return {
-            "price": state["price"],
-            "time": state["time"],
+            "price": last_closed["close"],
+            "time": pd.to_datetime(last_closed["time"], unit="s", utc=True),
+            "candle_time": last_closed["time"],
         }
 
     def tradeplan_provider() -> TradePlan | None:
@@ -136,7 +150,7 @@ def main():
     engine = LiveEngine(
         position_manager=pm,
         market_data_provider=market_data_provider,
-        tradeplan_provider=tradeplan_provider,
+        strategy_adapter=adapter_strategy,
         tick_interval_sec=TICK_INTERVAL_SEC,
     )
 

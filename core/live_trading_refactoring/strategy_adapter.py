@@ -5,6 +5,7 @@ from typing import Optional
 
 from core.strategy.BaseStrategy import BaseStrategy, TradePlan
 
+print(">>> LOADED strategy_adapter FROM", __file__)
 
 class LiveStrategyAdapter:
     """
@@ -20,11 +21,25 @@ class LiveStrategyAdapter:
         self.strategy = strategy
         self.volume = volume
 
-        self._last_bar_time: pd.Timestamp | None = None
-
     # ==================================================
     # Public API (used by LiveEngine)
     # ==================================================
+
+    def on_new_candle(self) -> TradePlan | None:
+        """
+        Called exactly once per closed candle.
+        Always runs strategy.
+        """
+
+        df = self.strategy.run()
+        if df.empty:
+            print("⚠️ Strategy returned empty DF")
+            return None
+
+        print("🧠 Strategy run on new candle")
+
+        last_row = df.iloc[-1]
+        return self.strategy.build_trade_plan(row=last_row)
 
     def get_trade_plan(self) -> Optional[TradePlan]:
         """
@@ -32,16 +47,7 @@ class LiveStrategyAdapter:
         Returns TradePlan only once per closed candle.
         """
 
-        # 1️⃣ Pobierz DF BEZ uruchamiania strategii
-        df = self.strategy.df
-        if df.empty:
-            return None
 
-        last_time = df.iloc[-1]["time"]
-
-        # debounce BEFORE run()
-        if self._last_bar_time == last_time:
-            return None
 
         # 2️⃣ Dopiero teraz odpal strategię
         df = self.strategy.run()

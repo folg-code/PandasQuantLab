@@ -37,6 +37,9 @@ class Hts(BaseStrategy):
         df['rma_144_low'] = qtpylib.rma(df, df['low'], 144)
         df['rma_144_high'] = qtpylib.rma(df, df['high'], 144)
 
+
+        print("df_M30",df)
+
         return df
 
     def populate_indicators(self):
@@ -51,8 +54,8 @@ class Hts(BaseStrategy):
         df['rma_144_low'] = qtpylib.rma(df, df['low'], 144)
         df['rma_144_high'] = qtpylib.rma(self.df, df['high'], 144)
 
-        df['sl_long'] = df['close'] - (2 * df['atr'])#df['rma_33_low']
-        df['sl_short'] = df['close'] + (2 * df['atr']) #df['rma_33_high']
+        df['sl_long'] = df['close'] - (10 * df['atr'])#df['rma_33_low']
+        df['sl_short'] = df['close'] + (10* df['atr']) #df['rma_33_high']
 
         self.df = df
 
@@ -117,7 +120,24 @@ class Hts(BaseStrategy):
             lambda row: self.calculate_levels(row["signal_entry"], row["close"], row["sl_long"], row['sl_short']),
             axis=1
         )
+
+        print(list(df.columns))
+        print(
+            "time first", df['time'].iloc[0],
+            "close first", df['close'].iloc[0],
+            "open first", df['open'].iloc[0],
+        )
+        print("LEVELS", df['levels'].iloc[-1],
+              "close", df['close'].iloc[-1],
+              "open", df['open'].iloc[-1],
+              "close_shifted", df['close'].iloc[-2],
+              "open_shifted", df['open'].iloc[-2],
+              "ATR", (df['atr'].iloc[-1] * 2),)
+
+        print("ŻYJĘ")
         self.df = df
+
+
         return df
 
     def populate_exit_trend(self):

@@ -5,6 +5,9 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Dict, Any
 
+import mt5
+
+from core.domain.risk import position_sizer_fast
 from core.live_trading_refactoring.trade_repo import TradeRepo
 from core.live_trading_refactoring.mt5_adapter import MT5Adapter
 
@@ -18,12 +21,90 @@ from core.strategy.trade_plan import TradePlan
 class PositionManager:
     """
     Handles live trading decisions.
-    ENTRY execution (no exits yet).
+    ENTRY execution with risk-based position sizing.
     """
 
     def __init__(self, repo: TradeRepo, adapter: MT5Adapter):
         self.repo = repo
         self.adapter = adapter
+
+    # ==================================================
+    # Risk helpers
+    # ==================================================
+
+    def _get_symbol_risk_params(self, symbol: str) -> tuple[float, float]:
+        """
+        Returns:
+            point_size: minimal price movement
+            pip_value: USD value of 1 pip for 1 lot
+        """
+        info = mt5.symbol_info(symbol)
+        if info is None:
+            raise RuntimeError(f"Symbol not found: {symbol}")
+
+        point_size = info.point
+
+        # Forex vs non-forex instruments
+        if info.point < 0.01:
+            ticks_per_pip = 0.0001 / info.point
+        else:
+            ticks_per_pip = 1.0
+
+        pip_value = info.trade_tick_value * ticks_per_pip
+
+        return point_size, pip_value
+
+    def _normalize_volume(self, symbol: str, volume: float) -> float:
+        info = mt5.symbol_info(symbol)
+        if info is None:
+            raise RuntimeError(f"Symbol not found: {symbol}")
+
+        min_vol = info.volume_min
+        max_vol = info.volume_max
+        step = info.volume_step
+
+        # clamp
+        volume = max(min_vol, min(volume, max_vol))
+
+        # round DOWN to step (broker-safe)
+        steps = int(volume / step)
+        normalized = round(steps * step, 2)
+
+        if normalized < min_vol:
+            raise RuntimeError(
+                f"Normalized volume {normalized} < min volume {min_vol}"
+            )
+
+        return normalized
+
+    def _calculate_volume(self, *, plan: TradePlan) -> float:
+        """
+        Risk-based position sizing.
+        """
+        cfg = plan.strategy_config or {}
+        max_risk = cfg.get("MAX_RISK", 0.005)
+
+        account = mt5.account_info()
+        if account is None:
+            raise RuntimeError("MT5 account info unavailable")
+
+        account_size = account.balance
+
+        point_size, pip_value = self._get_symbol_risk_params(plan.symbol)
+
+        volume = position_sizer_fast(
+            close=plan.entry_price,
+            sl=plan.exit_plan.sl,
+            max_risk=max_risk,
+            account_size=account_size,
+            point_size=point_size,
+            pip_value=pip_value,
+        )
+
+        if volume <= 0:
+            raise RuntimeError(f"Calculated invalid volume: {volume}")
+
+        return volume
 
     # ==================================================
     # Public API
@@ -40,12 +121,19 @@ class PositionManager:
             print("⚠️ Position already active – skipping TradePlan")
             return
 
-        print("📦 EXECUTING TRADE PLAN (DRY-RUN)")
+        # --- position sizing ---
+        raw_volume = self._calculate_volume(plan=plan)
+        volume = self._normalize_volume(plan.symbol, raw_volume)
+
+        print(
+            f"📦 EXECUTING TRADE PLAN | "
+            f"{plan.symbol} {plan.direction} vol={volume}"
+        )
 
         result = self.adapter.open_position(
             symbol=plan.symbol,
             direction=plan.direction,
-            volume=plan.volume,
+            volume=volume,
             price=plan.entry_price,
             sl=plan.exit_plan.sl,
             tp=getattr(plan.exit_plan, "tp2", None),
@@ -56,9 +144,6 @@ class PositionManager:
             exec_result=result,
             entry_time=market_state["time"],
         )
-
-
-
 
     # ==================================================
     # Internal helpers
@@ -228,6 +313,19 @@ class PositionManager:
         active[trade_id] = trade
         self.repo.save_active(active)
 
+    def _sync_closed_position(self, trade_id: str, trade: dict):
+        now = datetime.utcnow()
+
+        # nie wiemy dokładnie DLACZEGO broker zamknął
+        # ale wiemy, że to NIE manual z naszej strony
+        self.repo.record_exit(
+            trade_id=trade_id,
+            exit_price=trade.get("tp2") or trade.get("sl"),
+            exit_time=now,
+            exit_reason="BROKER_CLOSED",
+            exit_level_tag="TP2_live",
+        )
+
     def on_tick(self, *, market_state: dict) -> None:
         active = self.repo.load_active()
         if not active:
@@ -237,6 +335,22 @@ class PositionManager:
         now = market_state["time"]
 
         for trade_id, trade in list(active.items()):
+
+            # ==================================================
+            # 🔴 SYNC WITH MT5 (CRITICAL)
+            # ==================================================
+            positions = mt5.positions_get(ticket=int(trade["ticket"]))
+            if not positions:
+                print(f"🧹 Broker closed position {trade_id}, syncing repo")
+
+                self.repo.record_exit(
+                    trade_id=trade_id,
+                    exit_price=trade.get("tp2") or trade.get("sl"),
+                    exit_time=now,
+                    exit_reason="BROKER_CLOSED",
+                    exit_level_tag="TP2_live",
+                )
+                continue
 
             signal_exit = market_state.get("signal_exit")
             if isinstance(signal_exit, dict):
