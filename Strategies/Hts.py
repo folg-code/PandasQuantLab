@@ -13,7 +13,13 @@ from TechnicalAnalysis.Indicators.indicators import candlestick_confirmation
 class Hts(BaseStrategy):
 
     def __init__(self, df, symbol, startup_candle_count, provider):
-        super().__init__(df, symbol, startup_candle_count,provider)
+        super().__init__(
+            df=df,
+            symbol=symbol,
+            startup_candle_count=startup_candle_count,
+            provider=provider,
+            strategy_config=self.strategy_config,
+        )
 
     strategy_config = {
         "USE_TP1": True,
