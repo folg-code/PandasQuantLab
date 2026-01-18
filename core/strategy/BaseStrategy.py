@@ -1,20 +1,17 @@
 import inspect
 import time
 from collections import defaultdict
-
-from core.data_backends.mt5_provider import MT5Provider
-from core.strategy.trade_plan import TradePlan, FixedExitPlan, ManagedExitPlan, TradeAction
+from typing import Dict, Any
 
 import pandas as pd
 
-import config
+from core.strategy.trade_plan import (
+    TradePlan,
+    FixedExitPlan,
+    ManagedExitPlan,
+    TradeAction,
+)
 from core.backtesting.plotting.zones import ZoneView
-from core.live_trading.utils import parse_lookback
-from core.strategy.exception import StrategyConfigError
-
-
-
-
 
 
 class BaseStrategy:
@@ -44,28 +41,37 @@ class BaseStrategy:
             "reason": str
         }
     """
+
     REQUIRED_COLUMNS = [
-        "time", "open", "high", "low", "close", "atr",
+        "time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "atr",
         "signal_entry",
         "signal_exit",
         "levels",
         "custom_stop_loss",
     ]
 
-    def __init__(
-            self,
-            df,
-            symbol,
-            startup_candle_count=600,
-            provider=None,
-            strategy_config=None,
-    ):
+    # ==================================================
+    # Init
+    # ==================================================
 
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        symbol: str,
+        *,
+        startup_candle_count: int = 600,
+        provider=None,
+        strategy_config: Dict[str, Any] | None = None,
+    ):
         self.df = df.copy()
         self.symbol = symbol
         self.startup_candle_count = startup_candle_count
         self.provider = provider
-
 
         self.df_plot = None
         self.df_backtest = None
@@ -74,12 +80,15 @@ class BaseStrategy:
         self.informatives = defaultdict(list)
         self._collect_informatives()
 
-        self.htf_zones = None  # DataFrame stref HTF
-        self.ltf_zones = None  # opcjonalnie, jeśli kiedyś zechcesz
-
+        self.htf_zones = None
+        self.ltf_zones = None
 
         self.strategy_config = strategy_config or {}
         self.validate_strategy_config()
+
+    # ==================================================
+    # Strategy config validation
+    # ==================================================
 
     def validate_strategy_config(self):
         cfg = self.strategy_config
@@ -91,21 +100,23 @@ class BaseStrategy:
 
         if use_trailing:
             if trail_from == "tp1" and not use_tp1:
-                raise StrategyConfigError(
-                    "TRAIL_FROM='tp1' requires USE_TP1=True"
-                )
+                raise ValueError("TRAIL_FROM='tp1' requires USE_TP1=True")
 
             if use_tp2 and not cfg.get("ALLOW_TP2_WITH_TRAILING", False):
-                raise StrategyConfigError(
-                    "TP2 cannot be used with trailing unless ALLOW_TP2_WITH_TRAILING=True"
+                raise ValueError(
+                    "TP2 cannot be used with trailing unless "
+                    "ALLOW_TP2_WITH_TRAILING=True"
                 )
 
         if cfg.get("TRAIL_MODE") == "swing":
             if not cfg.get("SWING_LOOKBACK"):
-                raise StrategyConfigError(
+                raise ValueError(
                     "SWING_LOOKBACK required for TRAIL_MODE='swing'"
                 )
 
+    # ==================================================
+    # TradePlan
+    # ==================================================
 
     def build_trade_plan(self, *, row: pd.Series) -> TradePlan | None:
         signal = row.get("signal_entry")
@@ -130,7 +141,6 @@ class BaseStrategy:
         cfg = self.strategy_config
         use_trailing = cfg.get("USE_TRAILING", False)
 
-        # -------- decide exit plan --------
         has_signal_exit = isinstance(row.get("signal_exit"), dict)
         has_custom_sl = isinstance(row.get("custom_stop_loss"), dict)
         is_managed = use_trailing or has_signal_exit or has_custom_sl
@@ -142,7 +152,7 @@ class BaseStrategy:
             )
         else:
             if tp1 is None or tp2 is None:
-                return None # Fixed exit requires full SL/TP1/TP2 definition
+                return None
 
             exit_plan = FixedExitPlan(
                 sl=sl,
@@ -160,17 +170,24 @@ class BaseStrategy:
             strategy_config=self.strategy_config,
         )
 
+    # ==================================================
+    # Managed exits (optional)
+    # ==================================================
+
     def manage_trade(
-            self,
-            *,
-            trade_state: dict,
-            market_state: dict,
+        self,
+        *,
+        trade_state: dict,
+        market_state: dict,
     ) -> TradeAction | None:
         """
-        Called only for exit_mode='managed'.
+        Called only for managed exit mode.
         """
         return None
 
+    # ==================================================
+    # Informatives
+    # ==================================================
 
     @classmethod
     def get_required_informatives(cls):
@@ -181,23 +198,24 @@ class BaseStrategy:
                 tfs.add(fn._informative_timeframe)
         return sorted(tfs)
 
-    def attach_informative(self, timeframe, df):
-        self.informative_data[timeframe] = df
+    def _populate_informatives(self):
+        if self.provider is None:
+            return
 
-    # ---------- hooks ----------
-    def populate_indicators(self):
-        raise NotImplementedError
+        for tf, methods in self.informatives.items():
+            df_tf = self.provider.get_informative_df(
+                symbol=self.symbol,
+                timeframe=tf,
+            )
 
-    def populate_entry_trend(self):
-        raise NotImplementedError
+            for method in methods:
+                df_tf = method(df_tf)
 
-    def populate_exit_trend(self):
-        raise NotImplementedError
+            self._informative_results[tf] = df_tf
 
     def _merge_informatives(self):
-
-        if 'time' not in self.df.columns:
-            raise ValueError("Główny dataframe musi zawierać kolumnę 'time'")
+        if "time" not in self.df.columns:
+            raise ValueError("Main dataframe must contain 'time' column")
 
         for tf, df_tf in self._informative_results.items():
             df_tf_prefixed = df_tf.rename(
@@ -210,33 +228,31 @@ class BaseStrategy:
                 df_tf_prefixed.sort_values(f"time_{tf}"),
                 left_on="time",
                 right_on=f"time_{tf}",
-                direction="backward"
+                direction="backward",
             )
 
-        # normalizujemy czas
-        if 'time_x' in self.df.columns:
-            self.df = self.df.rename(columns={'time_x': 'time'})
-        if 'time_y' in self.df.columns:
-            self.df = self.df.drop(columns=['time_y'])
+        if "time_x" in self.df.columns:
+            self.df = self.df.rename(columns={"time_x": "time"})
+        if "time_y" in self.df.columns:
+            self.df = self.df.drop(columns=["time_y"])
 
-    def _populate_informatives(self):
+    # ==================================================
+    # Strategy hooks (must be implemented)
+    # ==================================================
 
-        if self.provider is None:
-            return
+    def populate_indicators(self):
+        raise NotImplementedError
 
-        for tf, methods in self.informatives.items():
+    def populate_entry_trend(self):
+        raise NotImplementedError
 
-            df_tf = self.provider.get_informative_df(
-                symbol=self.symbol,
-                timeframe=tf,
-            )
+    def populate_exit_trend(self):
+        raise NotImplementedError
 
-            for method in methods:
-                df_tf = method(df_tf)
+    # ==================================================
+    # Lifecycle
+    # ==================================================
 
-            self._informative_results[tf] = df_tf
-
-    # ---------- lifecycle ----------
     def run(self):
         self._run_step("populate_informatives", self._populate_informatives)
         self._run_step("merge_informatives", self._merge_informatives)
@@ -246,7 +262,10 @@ class BaseStrategy:
         self._finalize()
         return self.df_backtest
 
-    # ---------- helpers ----------
+    # ==================================================
+    # Helpers
+    # ==================================================
+
     def _run_step(self, name, func):
         start = time.time()
         func()
@@ -260,7 +279,6 @@ class BaseStrategy:
         for _, method in inspect.getmembers(type(self), predicate=callable):
             if getattr(method, "_informative", False):
                 tf = method._informative_timeframe
-                # zbindowana metoda
                 bound_method = getattr(self, method.__name__)
                 self.informatives[tf].append(bound_method)
 
