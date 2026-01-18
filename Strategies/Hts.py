@@ -45,6 +45,8 @@ class Hts(BaseStrategy):
     def populate_indicators(self) -> None:
         df = self.df
 
+        print("df main", df)
+
         df['atr'] = ta.ATR(df, 14)
 
         df['rma_33_low'] = qtpylib.rma(df, df['low'], 33)
@@ -115,7 +117,7 @@ class Hts(BaseStrategy):
             axis=1
         )
 
-        print(list(df.columns))
+        """print(list(df.columns))
         print(
             "time first", df['time'].iloc[0],
             "close first", df['close'].iloc[0],
@@ -128,7 +130,7 @@ class Hts(BaseStrategy):
               "open_shifted", df['open'].iloc[-2],
               "ATR", (df['atr'].iloc[-1] * 2),)
 
-        print("ŻYJĘ")
+        print("ŻYJĘ")"""
 
 
 

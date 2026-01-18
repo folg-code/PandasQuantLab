@@ -219,7 +219,6 @@ class BaseStrategy:
         if 'time_y' in self.df.columns:
             self.df = self.df.drop(columns=['time_y'])
 
-
     def _populate_informatives(self):
 
         if self.provider is None:
@@ -227,26 +226,14 @@ class BaseStrategy:
 
         for tf, methods in self.informatives.items():
 
-            lb_str = config.LOOKBACK_CONFIG.get(tf, "7d")  # default 7 dni
-            lookback = parse_lookback(tf, lb_str)
-
-            tf_mt5 = config.TIMEFRAME_MAP.get(tf)
-            if tf_mt5 is None:
-                raise ValueError(f"Niepoprawny timeframe: {tf}")
-
             df_tf = self.provider.get_informative_df(
                 symbol=self.symbol,
                 timeframe=tf,
-                startup_candle_count=self.startup_candle_count,
-                start = pd.Timestamp(config.TIMERANGE["start"], tz="UTC"),
-                end = pd.Timestamp(config.TIMERANGE["end"], tz="UTC")
             )
-
 
             for method in methods:
                 df_tf = method(df_tf)
 
-            # 🔴 ZERO merge tutaj
             self._informative_results[tf] = df_tf
 
     # ---------- lifecycle ----------

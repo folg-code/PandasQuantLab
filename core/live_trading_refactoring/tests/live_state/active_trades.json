@@ -1,18 +1,1 @@
-{
-  "369958228": {
-    "trade_id": 369958228,
-    "symbol": "BTCUSD",
-    "direction": "long",
-    "entry_price": 95325.68,
-    "volume": 0.0,
-    "sl": 95243.75358716586,
-    "tp1": 95407.60641283412,
-    "tp2": 95489.53282566826,
-    "tp1_executed": false,
-    "entry_time": "2026-01-17T20:51:02.265531",
-    "entry_tag": "long_trend1",
-    "strategy": "Hts",
-    "strategy_config": {},
-    "ticket": 369958228
-  }
-}
+{}

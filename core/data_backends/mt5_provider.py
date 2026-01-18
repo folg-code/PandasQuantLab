@@ -8,7 +8,14 @@ from core.data_backends.base import MarketDataProvider
 
 class MT5Provider(MarketDataProvider):
 
-    def get_ohlcv(self, *, symbol, timeframe, bars):
+    def get_ohlcv(
+            self,
+            *,
+            symbol: str,
+            timeframe: str,
+            bars: int,
+    ) -> pd.DataFrame:
+
         tf = TIMEFRAME_MAP[timeframe]
 
         rates = mt5.copy_rates_from_pos(symbol, tf, 0, bars)

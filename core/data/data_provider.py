@@ -4,9 +4,8 @@ import warnings
 import pandas as pd
 from pandas.tseries.frequencies import to_offset
 
-from config import DATA_BACKEND
 from core.data_backends.dukascopy_backend import DukascopyBackend
-from core.data_backends.mt5_provider import MT5Backend
+
 from core.data.timeframes import TIMEFRAME_MAP, normalize_timeframe
 import MetaTrader5 as mt5
 

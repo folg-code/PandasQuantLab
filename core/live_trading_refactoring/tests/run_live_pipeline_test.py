@@ -6,6 +6,7 @@ import time
 import MetaTrader5 as mt5
 import pandas as pd
 
+from core.data_backends.base import lookback_to_bars, LiveMT5Provider
 from core.data_backends.mt5_provider import MT5Provider
 from core.live_trading_refactoring import strategy_adapter
 from core.live_trading_refactoring.engine import LiveEngine
@@ -16,7 +17,9 @@ from core.live_trading_refactoring.strategy_adapter import LiveStrategyAdapter
 
 SYMBOL = "BTCUSD"
 TIMEFRAME = "M1"
-BARS = 500
+
+
+
 
 STRATEGY_NAME = "Hts"   # np. "liquidity_sweep"
 TICK_INTERVAL_SEC = 1.0
@@ -28,10 +31,16 @@ MT5_LOGIN = "1512326396"        # opcjonalnie
 MT5_PASSWORD = "B8?1TRis"
 MT5_SERVER = "FTMO-Demo"
 
+MIN_HTF_BARS = {
+    "M30": 400,
+    "H1": 300,
+    "H4": 200,
+}
+
 # ============================================================
 
-from config import TIMEFRAME_MAP
-from core.strategy.strategy_loader import load_strategy
+from config import TIMEFRAME_MAP, LOOKBACK_CONFIG, STARTUP_CANDLES
+from core.strategy.strategy_loader import load_strategy, load_strategy_class
 
 from core.live_trading_refactoring.position_manager import PositionManager
 from core.live_trading_refactoring.mt5_adapter import MT5Adapter
@@ -43,6 +52,10 @@ from core.strategy.trade_plan import TradePlan
 # ============================================================
 # MT5 INIT
 # ============================================================
+
+ltf_lookback = LOOKBACK_CONFIG[TIMEFRAME]
+
+BARS = lookback_to_bars(TIMEFRAME, ltf_lookback)
 
 def init_mt5():
     if not mt5.initialize():
@@ -105,14 +118,32 @@ def main():
     state = fetch_market_state(SYMBOL, TIMEFRAME, BARS)
     df = state["df"]
 
-    provider = MT5Provider()
+    MIN_HTF_BARS = {
+        "M30": 400,
+        "H1": 300,
+        "H4": 200,
+    }
+
+    bars_per_tf = {}
+
+    StrategyClass = load_strategy_class(STRATEGY_NAME)
+
+    for tf in StrategyClass.get_required_informatives():
+        lookback = LOOKBACK_CONFIG[tf]
+        bars = max(
+            lookback_to_bars(tf, lookback),
+            MIN_HTF_BARS.get(tf, 0),
+        )
+        bars_per_tf[tf] = bars
+
+    provider = LiveMT5Provider(bars_per_tf=bars_per_tf)
     # --- load strategy ---
     strategy = load_strategy(
         name=STRATEGY_NAME,
         df=df,
         symbol=SYMBOL,
-        startup_candle_count=200,
-        provider=provider,  # MT5 already used here
+        startup_candle_count=STARTUP_CANDLES,  # LTF warmup
+        provider=provider,
     )
 
     adapter_strategy = LiveStrategyAdapter(
@@ -140,12 +171,6 @@ def main():
             "candle_time": last_closed["time"],
         }
 
-    def tradeplan_provider() -> TradePlan | None:
-        plan = adapter_strategy.get_trade_plan()
-        if plan:
-            print("📦 TRADE PLAN GENERATED:")
-            print(plan)
-        return plan
 
     engine = LiveEngine(
         position_manager=pm,

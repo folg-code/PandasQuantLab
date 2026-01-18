@@ -7,6 +7,7 @@ from typing import Dict, Any
 
 import mt5
 
+from config import MAX_RISK_PER_TRADE
 from core.domain.risk import position_sizer_fast
 from core.live_trading_refactoring.trade_repo import TradeRepo
 from core.live_trading_refactoring.mt5_adapter import MT5Adapter
@@ -63,6 +64,9 @@ class PositionManager:
         max_vol = info.volume_max
         step = info.volume_step
 
+        print("Min_vol:", min_vol)
+        print("Max_vol:", max_vol)
+
         # clamp
         volume = max(min_vol, min(volume, max_vol))
 
@@ -82,7 +86,7 @@ class PositionManager:
         Risk-based position sizing.
         """
         cfg = plan.strategy_config or {}
-        max_risk = cfg.get("MAX_RISK", 0.005)
+        max_risk = cfg.get("MAX_RISK", MAX_RISK_PER_TRADE)
 
         account = mt5.account_info()
         if account is None:
@@ -100,6 +104,11 @@ class PositionManager:
             point_size=point_size,
             pip_value=pip_value,
         )
+
+        print("ACCOUNT_SIZE:", account_size)
+        print("POINT_SIZE:", point_size)
+        print("PIP_VALE:", pip_value)
+        print("VOLUME:", volume)
 
         if volume <= 0:
             raise RuntimeError(f"Calculated invalid volume: {volume}")
@@ -127,7 +136,8 @@ class PositionManager:
 
         print(
             f"📦 EXECUTING TRADE PLAN | "
-            f"{plan.symbol} {plan.direction} vol={volume}"
+            f"{plan.symbol} {plan.direction} "
+            f"raw_vol={raw_volume:.4f} norm_vol={volume}"
         )
 
         result = self.adapter.open_position(

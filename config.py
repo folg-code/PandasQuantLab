@@ -15,6 +15,7 @@ TIMEFRAME_MAP = {
     "MN1": mt5.TIMEFRAME_MN1
 }
 
+STARTUP_CANDLES = 500
 LOOKBACK_CONFIG = {
     "M1":  "24h",
     "M5":  "7d",
@@ -50,6 +51,8 @@ SYMBOLS = [
     "BTCUSD"
 ]
 TIMEFRAME = "M1"
+
+MAX_RISK_PER_TRADE = 0.005
 
 # BACKTEST
 BACKTEST_DATA_BACKEND = "dukascopy"   # lub "csv"
