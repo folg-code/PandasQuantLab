@@ -3,7 +3,8 @@ from datetime import datetime
 from typing import Callable, Dict, Any, Iterable
 
 from core.live_trading_refactoring.position_manager import PositionManager
-from core.strategy.BaseStrategy import TradePlan
+from core.live_trading_refactoring.strategy_adapter import LiveStrategyAdapter
+from core.strategy.trade_plan  import TradePlan
 
 
 class LiveEngine:
@@ -16,16 +17,17 @@ class LiveEngine:
         self,
         *,
         position_manager: PositionManager,
-        market_data_provider: Callable[[], Dict[str, Any]],
-        tradeplan_provider: Callable[[], TradePlan | None],
+        market_data_provider,
+        strategy_adapter: LiveStrategyAdapter,
         tick_interval_sec: float = 1.0,
     ):
         self.position_manager = position_manager
         self.market_data_provider = market_data_provider
-        self.tradeplan_provider = tradeplan_provider
+        self.strategy_adapter = strategy_adapter
         self.tick_interval_sec = tick_interval_sec
 
         self._running = False
+        self._last_candle_time = None
 
     # ==================================================
     # Lifecycle
@@ -45,12 +47,19 @@ class LiveEngine:
     # ==================================================
 
     def _run_loop(self):
+        last_heartbeat = time.time()
+
         while self._running:
             try:
                 self._tick()
             except Exception as e:
-                # fail-safe: engine never dies silently
                 print(f"❌ Engine error: {e}")
+
+            # heartbeat co 30s
+            if time.time() - last_heartbeat > 30:
+                print("💓 Engine alive")
+                last_heartbeat = time.time()
+
             time.sleep(self.tick_interval_sec)
 
     def _tick(self):
@@ -60,11 +69,29 @@ class LiveEngine:
 
         market_state.setdefault("time", datetime.utcnow())
 
-        # exits
+        # --------------------------------------------------
+        # EXIT LOGIC (tick-based)
+        # --------------------------------------------------
         self.position_manager.on_tick(market_state=market_state)
 
-        # entry — ONLY TradePlan
-        plan = self.tradeplan_provider()
+        # --------------------------------------------------
+        # ENTRY LOGIC (candle-based)
+        # --------------------------------------------------
+        candle_time = market_state.get("candle_time")
+
+        if candle_time is None:
+            # brak informacji o świecy → NIE uruchamiamy strategii
+            return
+
+        if getattr(self, "_last_candle_time", None) == candle_time:
+            # ta sama świeca → debounce
+            return
+
+        # 🔑 NOWA ZAMKNIĘTA ŚWIECA
+        self._last_candle_time = candle_time
+        print(f"🕯️ New candle closed at {candle_time}")
+
+        plan = self.strategy_adapter.on_new_candle()
         if plan is not None:
             self.position_manager.on_trade_plan(
                 plan=plan,

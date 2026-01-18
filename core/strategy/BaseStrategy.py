@@ -1,12 +1,17 @@
 import inspect
 import time
 from collections import defaultdict
+from typing import Dict, Any
 
 import pandas as pd
 
-import config
+from core.strategy.trade_plan import (
+    TradePlan,
+    FixedExitPlan,
+    ManagedExitPlan,
+    TradeAction,
+)
 from core.backtesting.plotting.zones import ZoneView
-from core.live_trading.utils import parse_lookback
 
 
 class BaseStrategy:
@@ -50,6 +55,10 @@ class BaseStrategy:
         "custom_stop_loss",
     ]
 
+    # ==================================================
+    # Init
+    # ==================================================
+
     def __init__(
         self,
         df: pd.DataFrame,
@@ -57,6 +66,7 @@ class BaseStrategy:
         *,
         startup_candle_count: int = 600,
         provider=None,
+        strategy_config: Dict[str, Any] | None = None,
     ):
         self.df = df.copy()
         self.symbol = symbol
@@ -72,6 +82,108 @@ class BaseStrategy:
 
         self.htf_zones = None
         self.ltf_zones = None
+
+        self.strategy_config = strategy_config or {}
+        self.validate_strategy_config()
+
+    # ==================================================
+    # Strategy config validation
+    # ==================================================
+
+    def validate_strategy_config(self):
+        cfg = self.strategy_config
+
+        use_trailing = cfg.get("USE_TRAILING", False)
+        use_tp1 = cfg.get("USE_TP1", True)
+        use_tp2 = cfg.get("USE_TP2", False)
+        trail_from = cfg.get("TRAIL_FROM", "tp1")
+
+        if use_trailing:
+            if trail_from == "tp1" and not use_tp1:
+                raise ValueError("TRAIL_FROM='tp1' requires USE_TP1=True")
+
+            if use_tp2 and not cfg.get("ALLOW_TP2_WITH_TRAILING", False):
+                raise ValueError(
+                    "TP2 cannot be used with trailing unless "
+                    "ALLOW_TP2_WITH_TRAILING=True"
+                )
+
+        if cfg.get("TRAIL_MODE") == "swing":
+            if not cfg.get("SWING_LOOKBACK"):
+                raise ValueError(
+                    "SWING_LOOKBACK required for TRAIL_MODE='swing'"
+                )
+
+    # ==================================================
+    # TradePlan
+    # ==================================================
+
+    def build_trade_plan(self, *, row: pd.Series) -> TradePlan | None:
+        signal = row.get("signal_entry")
+        levels = row.get("levels")
+
+        if not isinstance(signal, dict):
+            return None
+        if not isinstance(levels, dict):
+            return None
+
+        direction = signal.get("direction")
+        if direction not in ("long", "short"):
+            return None
+
+        sl = levels.get("SL", {}).get("level")
+        tp1 = levels.get("TP1", {}).get("level")
+        tp2 = levels.get("TP2", {}).get("level") if levels.get("TP2") else None
+
+        if sl is None:
+            return None
+
+        cfg = self.strategy_config
+        use_trailing = cfg.get("USE_TRAILING", False)
+
+        has_signal_exit = isinstance(row.get("signal_exit"), dict)
+        has_custom_sl = isinstance(row.get("custom_stop_loss"), dict)
+        is_managed = use_trailing or has_signal_exit or has_custom_sl
+
+        if is_managed:
+            exit_plan = ManagedExitPlan(
+                sl=sl,
+                tp1=tp1,
+            )
+        else:
+            if tp1 is None or tp2 is None:
+                return None
+
+            exit_plan = FixedExitPlan(
+                sl=sl,
+                tp1=tp1,
+                tp2=tp2,
+            )
+
+        return TradePlan(
+            symbol=self.symbol,
+            direction=direction,
+            entry_price=row["close"],
+            entry_tag=signal.get("tag", ""),
+            exit_plan=exit_plan,
+            strategy_name=type(self).__name__,
+            strategy_config=self.strategy_config,
+        )
+
+    # ==================================================
+    # Managed exits (optional)
+    # ==================================================
+
+    def manage_trade(
+        self,
+        *,
+        trade_state: dict,
+        market_state: dict,
+    ) -> TradeAction | None:
+        """
+        Called only for managed exit mode.
+        """
+        return None
 
     # ==================================================
     # Informatives
@@ -91,16 +203,10 @@ class BaseStrategy:
             return
 
         for tf, methods in self.informatives.items():
-            try:
-                df_tf = self.provider.get_ohlcv(
-                    symbol=self.symbol,
-                    timeframe=tf,
-                    start=pd.Timestamp(config.TIMERANGE["start"], tz="UTC"),
-                    end=pd.Timestamp(config.TIMERANGE["end"], tz="UTC"),
-                )
-            except DataNotAvailable:
-                print(f"⚠️ Informative {tf} not available for {self.symbol}, skipping")
-                continue
+            df_tf = self.provider.get_informative_df(
+                symbol=self.symbol,
+                timeframe=tf,
+            )
 
             for method in methods:
                 df_tf = method(df_tf)
@@ -131,7 +237,7 @@ class BaseStrategy:
             self.df = self.df.drop(columns=["time_y"])
 
     # ==================================================
-    # Strategy hooks
+    # Strategy hooks (must be implemented)
     # ==================================================
 
     def populate_indicators(self):
@@ -170,10 +276,11 @@ class BaseStrategy:
         self.df_backtest = self.df[self.REQUIRED_COLUMNS].copy()
 
     def _collect_informatives(self):
-        for _, method in inspect.getmembers(self, predicate=callable):
+        for _, method in inspect.getmembers(type(self), predicate=callable):
             if getattr(method, "_informative", False):
                 tf = method._informative_timeframe
-                self.informatives[tf].append(method)
+                bound_method = getattr(self, method.__name__)
+                self.informatives[tf].append(bound_method)
 
     def _zones_view(self):
         return ZoneView(self.htf_zones)

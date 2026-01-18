@@ -82,5 +82,6 @@ Thumbs.db
 
 results
 market_data
-config.py
 logs
+live_state_*/
+download/

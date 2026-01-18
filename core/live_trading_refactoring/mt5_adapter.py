@@ -25,8 +25,9 @@ class MT5Adapter:
             print("⚠ MT5Adapter running in DRY-RUN mode")
             return
 
-        if not mt5.initialize(login=login, password=password, server=server):
-            raise RuntimeError(f"MT5 initialize failed: {mt5.last_error()}")
+        # ❗ NIE initialize MT5 tutaj
+        if not mt5.terminal_info():
+            raise RuntimeError("MT5 terminal not initialized")
 
         print("🟢 MT5 initialized")
 

@@ -8,7 +8,14 @@ from core.data_backends.base import MarketDataProvider
 
 class MT5Provider(MarketDataProvider):
 
-    def get_ohlcv(self, *, symbol, timeframe, bars):
+    def get_ohlcv(
+            self,
+            *,
+            symbol: str,
+            timeframe: str,
+            bars: int,
+    ) -> pd.DataFrame:
+
         tf = TIMEFRAME_MAP[timeframe]
 
         rates = mt5.copy_rates_from_pos(symbol, tf, 0, bars)
@@ -16,7 +23,8 @@ class MT5Provider(MarketDataProvider):
             raise RuntimeError(f"MT5 returned no data for {symbol} {timeframe}")
 
         df = pd.DataFrame(rates)
-        df["time"] = pd.to_datetime(df["time"], unit="s")
+        df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
+        df = df.sort_values("time").reset_index(drop=True)
         return df
 
     def get_informative_df(
