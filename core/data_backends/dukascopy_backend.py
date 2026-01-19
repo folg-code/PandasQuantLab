@@ -24,7 +24,7 @@ class DukascopyBackend:
     Dukascopy BI5 backend with monthly RAW CSV cache
     """
 
-    def __init__(self, raw_cache="market_data/_raw/dukascopy"):
+    def __init__(self, raw_cache="mmarket_data/_raw/dukascopy"):
         self.cache_folder = raw_cache
 
     # ==================================================

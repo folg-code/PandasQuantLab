@@ -2,7 +2,7 @@ import os
 import json
 import MetaTrader5 as mt5
 
-CACHE_FILE = "market_data/pip_values.json"
+CACHE_FILE = "mmarket_data/pip_values.json"
 
 def load_pip_cache():
     if os.path.exists(CACHE_FILE):

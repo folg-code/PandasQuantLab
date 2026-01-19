@@ -27,7 +27,7 @@ class DataProvider:
         self,
         mode: str,
         backend,
-        cache_folder: str = "market_data",
+        cache_folder: str = "mmarket_data",
         cache_enabled: bool = True,
         strict_continuity: bool = False,
     ):

@@ -3,7 +3,7 @@ import pandas as pd
 
 
 class CSVBackend:
-    def __init__(self, folder="market_data"):
+    def __init__(self, folder="mmarket_data"):
         self.folder = folder
 
     def load(self, symbol):

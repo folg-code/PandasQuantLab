@@ -1,7 +1,7 @@
 import mt5
 
 
-MARKET_DATA_PATH = "market_data"
+MARKET_DATA_PATH = "mmarket_data"
 
 TIMEFRAME_MAP = {
     "M1": mt5.TIMEFRAME_M1,
