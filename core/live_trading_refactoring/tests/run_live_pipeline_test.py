@@ -5,10 +5,12 @@ from datetime import datetime
 import MetaTrader5 as mt5
 import pandas as pd
 
+from config.live import STARTUP_CANDLE_COUNT
 from core.data_provider.clients.mt5_provider import lookback_to_bars, LiveMT5Provider
 from core.live_trading_refactoring.engine import LiveEngine
 from core.live_trading_refactoring.strategy_adapter import LiveStrategyAdapter
-
+from core.utils.lookback import LOOKBACK_CONFIG
+from core.utils.timeframe import MT5_TIMEFRAME_MAP
 
 # === CONFIG ==================================================
 
@@ -36,7 +38,7 @@ MIN_HTF_BARS = {
 
 # ============================================================
 
-from config import TIMEFRAME_MAP, LOOKBACK_CONFIG, STARTUP_CANDLES
+
 from core.strategy.strategy_loader import load_strategy, load_strategy_class
 
 from core.live_trading_refactoring.position_manager import PositionManager
@@ -71,7 +73,7 @@ def init_mt5():
 
 def fetch_market_state(symbol: str, timeframe: str, bars: int):
 
-    tf = TIMEFRAME_MAP[timeframe]
+    tf = MT5_TIMEFRAME_MAP[timeframe]
     rates = mt5.copy_rates_from_pos(symbol, tf, 0, bars)
 
     if rates is None:
@@ -136,7 +138,7 @@ def main():
         name=STRATEGY_NAME,
         df=df,
         symbol=SYMBOL,
-        startup_candle_count=STARTUP_CANDLES,  # LTF warmup
+        startup_candle_count=STARTUP_CANDLE_COUNT,  # LTF warmup
         provider=provider,
     )
 
@@ -149,7 +151,7 @@ def main():
     def market_data_provider():
         rates = mt5.copy_rates_from_pos(
             SYMBOL,
-            TIMEFRAME_MAP[TIMEFRAME],
+            MT5_TIMEFRAME_MAP[TIMEFRAME],
             0,
             2,
         )

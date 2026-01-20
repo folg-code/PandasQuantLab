@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 import mt5
 
-from config import MAX_RISK_PER_TRADE
+from config.live import MAX_RISK_PER_TRADE
 from core.domain.risk import position_sizer_fast
 from core.live_trading_refactoring.trade_repo import TradeRepo
 from core.live_trading_refactoring.mt5_adapter import MT5Adapter

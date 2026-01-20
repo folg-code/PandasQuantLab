@@ -15,11 +15,13 @@ from core.backtesting.plotting.plot import TradePlotter
 from core.strategy.runner import run_strategy_single
 from core.strategy.strategy_loader import load_strategy_class
 
+import config.backtest as cfg
+
 
 class BacktestRunner:
 
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, cfg):
+        self.config = cfg
         self.provider = None
         self.strategies = []
         self.signals_df = None
