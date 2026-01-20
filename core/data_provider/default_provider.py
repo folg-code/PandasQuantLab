@@ -182,18 +182,41 @@ class DefaultOhlcvDataProvider:
     # -------------------------------------------------
 
     def get_informative_df(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        startup_candle_count: int,
+            self,
+            *,
+            symbol: str,
+            timeframe: str,
+            startup_candle_count: int,
     ) -> pd.DataFrame:
+        """
+        Informative data for BACKTEST.
+
+        Fetches EXTENDED range:
+        [backtest_start - startup_candle_count * timeframe, backtest_end]
+
+        No trimming here. Trimming happens AFTER merge.
+        """
+
+        extended_start = shift_time_by_candles(
+            end=self.backtest_start,
+            timeframe=timeframe,
+            candles=startup_candle_count,
+        )
 
         df = self.get_ohlcv(
             symbol=symbol,
             timeframe=timeframe,
-            start=self.backtest_start,
+            start=extended_start,
             end=self.backtest_end,
         )
 
-        return df.tail(startup_candle_count).copy()
+        return df.copy()
+
+def shift_time_by_candles(
+    *,
+    end: pd.Timestamp,
+    timeframe: str,
+    candles: int,
+) -> pd.Timestamp:
+    freq = timeframe_to_pandas_freq(timeframe)
+    return end - pd.tseries.frequencies.to_offset(freq) * candles

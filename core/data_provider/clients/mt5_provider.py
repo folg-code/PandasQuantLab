@@ -3,6 +3,8 @@ import MetaTrader5 as mt5
 
 import config
 from core.data_provider.base import MarketDataProvider
+from core.utils.lookback import LOOKBACK_CONFIG
+from core.utils.timeframe import MT5_TIMEFRAME_MAP
 
 
 class LiveMT5Provider(MarketDataProvider):
@@ -17,7 +19,7 @@ class LiveMT5Provider(MarketDataProvider):
         timeframe: str,
         bars: int,
     ) -> pd.DataFrame:
-        tf = config.TIMEFRAME_MAP[timeframe]
+        tf = MT5_TIMEFRAME_MAP[timeframe]
         rates = mt5.copy_rates_from_pos(symbol, tf, 0, bars)
         if rates is None:
             raise RuntimeError(
@@ -38,7 +40,7 @@ class LiveMT5Provider(MarketDataProvider):
         # 🔑 LIVE: lookback → bars
         bars = lookback_to_bars(
             timeframe=timeframe,
-            lookback=config.LOOKBACK_CONFIG[timeframe],
+            lookback=LOOKBACK_CONFIG[timeframe],
         )
 
         df = self.get_ohlcv(
