@@ -49,39 +49,39 @@ def detect_peaks(df2, pivot_range, min_percentage_change):
     pivot_map = {}
 
     # Przypisanie kodów pivot
-    df2[f'pivot_{pivot_range}'] = 0
+    df2[f'pivot'] = 0
     for k, cond in conditions.items():
-        df2.loc[cond, f'pivot_{pivot_range}'] = code_map[k]
+        df2.loc[cond, f'pivot'] = code_map[k]
         pivot_map[k] = df2.loc[cond, 'pivotprice']
 
     # ------------------- GENEROWANIE KOLUMN -------------------
     for k in ['HH', 'LL', 'LH', 'HL']:
         # wartości pivot
-        df2[k_col := f'{k}_{pivot_range}'] = pivot_map.get(k)
+        df2[k_col := f'{k}'] = pivot_map.get(k)
         df2[k_col] = df2[k_col].ffill()
 
         # indeksy pivot
-        idx_col = f'{k}_{pivot_range}_idx'
-        df2[idx_col] = df2.loc[df2[f'pivot_{pivot_range}'] == code_map[k], 'idx']
+        idx_col = f'{k}_idx'
+        df2[idx_col] = df2.loc[df2[f'pivot'] == code_map[k], 'idx']
         df2[idx_col] = df2[idx_col].ffill().fillna(0)
 
         # wartości shift
-        df2[f'{k}_{pivot_range}_shift'] = df2[k_col].shift(1).ffill()
-        df2[f'{k}_{pivot_range}_idx_shift'] = df2[idx_col].shift(1).ffill()
+        df2[f'{k}_shift'] = df2[k_col].shift(1).ffill()
+        df2[f'{k}_idx_shift'] = df2[idx_col].shift(1).ffill()
 
         # spread
-        spread_col = f'{k}_{pivot_range}_spread'
+        spread_col = f'{k}_spread'
         df2[spread_col] = np.nan
-        mask = df2[f'pivot_{pivot_range}'] == code_map[k]
+        mask = df2[f'pivot'] == code_map[k]
         df2.loc[mask, spread_col] = df2.loc[mask, 'spread']
         df2[spread_col] = df2[spread_col].ffill()
 
-    peaks = df2[[f'{k}_{pivot_range}' for k in ['HH', 'HL', 'LL', 'LH']] +
-                [f'{k}_{pivot_range}_shift' for k in ['HH', 'HL', 'LL', 'LH']] +
-                [f'{k}_{pivot_range}_idx' for k in ['HH', 'HL', 'LL', 'LH']] +
-                [f'{k}_{pivot_range}_idx_shift' for k in ['HH', 'HL', 'LL', 'LH']] +
-                [f'{k}_{pivot_range}_spread' for k in ['HH', 'HL', 'LL', 'LH']] +
-                [f'pivot_{pivot_range}']]
+    peaks = df2[[f'{k}' for k in ['HH', 'HL', 'LL', 'LH']] +
+                [f'{k}_shift' for k in ['HH', 'HL', 'LL', 'LH']] +
+                [f'{k}_idx' for k in ['HH', 'HL', 'LL', 'LH']] +
+                [f'{k}_idx_shift' for k in ['HH', 'HL', 'LL', 'LH']] +
+                [f'{k}_spread' for k in ['HH', 'HL', 'LL', 'LH']] +
+                [f'pivot']]
 
     return peaks
 
@@ -97,22 +97,22 @@ def detect_fibo(
     df2 = df2.copy()
 
     # ------------------- Lokalne HH/LL -------------------
-    df2[f'last_low_{pivot_range}'] = (
+    df2[f'last_low'] = (
         np.where(
             LL_idx > HL_idx,
             LL,HL)
     )
-    df2[f'last_low_{pivot_range}_idx'] = (
+    df2[f'last_low_idx'] = (
         np.where(
             LL_idx > HL_idx,
             LL_idx, HL_idx)
     )
-    df2[f'last_high_{pivot_range}'] = (
+    df2[f'last_high'] = (
         np.where(
             HH_idx > LH_idx,
             HH, LH)
     )
-    df2[f'last_high_{pivot_range}_idx'] = (
+    df2[f'last_high_idx'] = (
         np.where(
             HH_idx > LH_idx,
             HH_idx, LH_idx)
@@ -120,42 +120,42 @@ def detect_fibo(
 
     # Aktualizacja wybicia
     df2['real_last_high'] = (
-        df2[f'last_high_{pivot_range}'].combine(df2['high'], max))
+        df2[f'last_high'].combine(df2['high'], max))
 
     df2['real_last_high_idx'] = np.where(
-        df2['high'] > df2[f'last_high_{pivot_range}'],
+        df2['high'] > df2[f'last_high'],
         df2.index,
-        df2[f'last_high_{pivot_range}_idx']
+        df2[f'last_high_idx']
     )
 
     df2['real_last_low'] = (
-        df2[f'last_low_{pivot_range}'].combine(df2['low'], min))
+        df2[f'last_low'].combine(df2['low'], min))
 
     df2['real_last_low_idx'] = np.where(
-        df2['low'] < df2[f'last_low_{pivot_range}'],
+        df2['low'] < df2[f'last_low'],
         df2.index,
-        df2[f'last_low_{pivot_range}_idx']
+        df2[f'last_low_idx']
     )
 
     # ------------------- Względem lokalnego trendu -------------------
     rise = (
-            df2[f'last_high_{pivot_range}'] -
-            df2[f'last_low_{pivot_range}'])
+            df2[f'last_high'] -
+            df2[f'last_low'])
     cond_up_local = (
-            df2[f'last_low_{pivot_range}_idx'] <
-            df2[f'last_high_{pivot_range}_idx'])
+            df2[f'last_low_idx'] <
+            df2[f'last_high_idx'])
     cond_down_local = (
-            df2[f'last_low_{pivot_range}_idx'] >
-            df2[f'last_high_{pivot_range}_idx'])
+            df2[f'last_low_idx'] >
+            df2[f'last_high_idx'])
 
     fib_local_coeffs = [0.5, 0.618, 0.66, 1.25, 1.618]
     for coeff in fib_local_coeffs:
-        df2.loc[cond_up_local, f'fibo_local_{str(coeff).replace(".", "")}_{pivot_range}'] =(
-                df2[f'last_high_{pivot_range}'] - rise * coeff
+        df2.loc[cond_up_local, f'fibo_local_{str(coeff).replace(".", "")}'] =(
+                df2[f'last_high'] - rise * coeff
         )
 
-        df2.loc[cond_down_local, f'fibo_local_{str(coeff).replace(".", "")}_{pivot_range}_bear'] = (
-                df2[f'last_low_{pivot_range}'] + rise * coeff
+        df2.loc[cond_down_local, f'fibo_local_{str(coeff).replace(".", "")}_bear'] = (
+                df2[f'last_low'] + rise * coeff
         )
 
     # ------------------- Globalne HH/LL -------------------
@@ -169,9 +169,9 @@ def detect_fibo(
     cond_down_global = df2['real_LL_idx'] > df2['real_HH_idx']
 
     for coeff in fib_local_coeffs:
-        df2.loc[cond_up_global, f'fibo_global_{str(coeff).replace(".", "")}_{pivot_range}'] =(
+        df2.loc[cond_up_global, f'fibo_global_{str(coeff).replace(".", "")}'] =(
                 df2['real_HH'] - range_global * coeff)
-        df2.loc[cond_down_global, f'fibo_global_{str(coeff).replace(".", "")}_{pivot_range}_bear'] =(
+        df2.loc[cond_down_global, f'fibo_global_{str(coeff).replace(".", "")}_bear'] =(
                 df2['real_LL'] + range_global * coeff)
 
     # ------------------- Wypełnianie braków -------------------
@@ -250,11 +250,11 @@ def detect_price_action_optimized(
         idx_cols[name] = np.where(trigger, df2['idx'], pd.NA)
 
         # Zapis kolumn idx i level
-        df2[f'{name}_idx_{pivot_range}'] = pd.Series(idx_cols[name]).ffill()
-        df2[f'{name}_level_{pivot_range}'] = pd.Series(levels[name]).ffill().fillna(df2['close'])
+        df2[f'{name}_idx'] = pd.Series(idx_cols[name]).ffill()
+        df2[f'{name}_level'] = pd.Series(levels[name]).ffill().fillna(df2['close'])
 
     # Max idx (aktywność)
-    idx_cols_names = [f'{act["name"]}_idx_{pivot_range}' for act in actions]
+    idx_cols_names = [f'{act["name"]}_idx' for act in actions]
     max_idx = df2[idx_cols_names].max(axis=1)
 
     # Typ price action
@@ -265,22 +265,22 @@ def detect_price_action_optimized(
 
     for act in actions:
         name = act['name']
-        df2[f'price_action_{pivot_range}'] = (
-            df2.get(f'price_action_{pivot_range}', pd.NA))
+        df2[f'price_action'] = (
+            df2.get(f'price_action', pd.NA))
 
-        df2.loc[triggers[name], f'price_action_{pivot_range}'] = price_map[name]
-        df2[f'{name}_{pivot_range}'] =(
-                df2[f'{name}_idx_{pivot_range}'] == max_idx)
+        df2.loc[triggers[name], f'price_action'] = price_map[name]
+        df2[f'{name}'] =(
+                df2[f'{name}_idx'] == max_idx)
 
     # Zwracamy tylko kolumny docelowe
     cols_to_return = []
     for act in actions:
         name = act['name']
         cols_to_return += [
-            f'{name}_idx_{pivot_range}',
-            f'{name}_{pivot_range}',
-            f'{name}_level_{pivot_range}'
+            f'{name}_idx',
+            f'{name}',
+            f'{name}_level'
         ]
-    cols_to_return.append(f'price_action_{pivot_range}')
+    cols_to_return.append(f'price_action')
 
     return df2[cols_to_return]

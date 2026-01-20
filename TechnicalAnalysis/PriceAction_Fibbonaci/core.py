@@ -1,189 +1,275 @@
 import numpy as np
 import pandas as pd
 import talib.abstract as ta
+from debugpy.launcher.debuggee import describe
 
 
-class PriceStructureDetector:
-    def __init__(self, df: pd.DataFrame, pivot_range: int = 15, min_percentage_change: float = 0.01):
-        self.df = df.copy()
+class IntradayMarketStructure:
+    def __init__(
+        self,
+        pivot_range: int = 15,
+        min_percentage_change: float = 0.01
+    ):
         self.pivot_range = pivot_range
         self.min_percentage_change = min_percentage_change
 
     # =============================================================
     # 1️⃣ DETEKCJA PIVOTÓW
     # =============================================================
-    def detect_peaks(self):
+    def detect_peaks(self, df):
 
-        df2 = self.df.copy()
         pivot_range = self.pivot_range
 
-        df2['rsi'] = ta.RSI(df2, pivot_range)
-        df2['atr'] = ta.ATR(df2, pivot_range)
-        df2['idx'] = np.arange(len(df2))
+        df['rsi'] = ta.RSI(df, pivot_range)
+        df['atr'] = ta.ATR(df, pivot_range)
+        df['idx'] = np.arange(len(df))
 
         ############################## DETECT PIVOTS ##############################
         local_high_price = (
-                (df2["high"].rolling(window=pivot_range).max().shift(pivot_range + 1) <= df2["high"].shift(
+                (df["high"].rolling(window=pivot_range).max().shift(pivot_range + 1) <= df["high"].shift(
                     pivot_range)) &
-                (df2["high"].rolling(window=pivot_range).max() <= df2["high"].shift(pivot_range))
+                (df["high"].rolling(window=pivot_range).max() <= df["high"].shift(pivot_range))
         )
         local_low_price = (
-                ((df2["low"].rolling(window=pivot_range).min()).shift(pivot_range + 1) >= df2["low"].shift(
+                ((df["low"].rolling(window=pivot_range).min()).shift(pivot_range + 1) >= df["low"].shift(
                     pivot_range)) &
-                (df2["low"].rolling(window=pivot_range).min() >= df2["low"].shift(pivot_range))
+                (df["low"].rolling(window=pivot_range).min() >= df["low"].shift(pivot_range))
         )
 
-        df2.loc[local_high_price, 'pivotprice'] = df2['high'].shift(pivot_range)
-        df2.loc[local_low_price, 'pivotprice'] = df2['low'].shift(pivot_range)
+        df.loc[local_high_price, 'pivotprice'] = df['high'].shift(pivot_range)
+        df.loc[local_low_price, 'pivotprice'] = df['low'].shift(pivot_range)
 
-        df2.loc[local_high_price, 'pivot_body'] = (
-            df2[['open', 'close']].max(axis=1).rolling(int(pivot_range)).max()).shift(int(pivot_range / 2))
-        df2.loc[local_low_price, 'pivot_body'] = (
-            df2[['open', 'close']].min(axis=1).rolling(int(pivot_range)).min()).shift(int(pivot_range / 2))
+        df.loc[local_high_price, 'pivot_body'] = (
+            df[['open', 'close']].max(axis=1).rolling(int(pivot_range)).max()).shift(int(pivot_range / 2))
+        df.loc[local_low_price, 'pivot_body'] = (
+            df[['open', 'close']].min(axis=1).rolling(int(pivot_range)).min()).shift(int(pivot_range / 2))
 
         HH_condition = local_high_price & (
-                    df2.loc[local_high_price, 'pivotprice'] > df2.loc[local_high_price, 'pivotprice'].shift(1))
+                df.loc[local_high_price, 'pivotprice'] > df.loc[local_high_price, 'pivotprice'].shift(1))
         LL_condition = local_low_price & (
-                    df2.loc[local_low_price, 'pivotprice'] < df2.loc[local_low_price, 'pivotprice'].shift(1))
+                df.loc[local_low_price, 'pivotprice'] < df.loc[local_low_price, 'pivotprice'].shift(1))
         LH_condition = local_high_price & (
-                    df2.loc[local_high_price, 'pivotprice'] < df2.loc[local_high_price, 'pivotprice'].shift(1))
+                df.loc[local_high_price, 'pivotprice'] < df.loc[local_high_price, 'pivotprice'].shift(1))
         HL_condition = local_low_price & (
-                    df2.loc[local_low_price, 'pivotprice'] > df2.loc[local_low_price, 'pivotprice'].shift(1))
+                df.loc[local_low_price, 'pivotprice'] > df.loc[local_low_price, 'pivotprice'].shift(1))
 
-        df2.loc[local_high_price, f'pivot_{pivot_range}'] = 1
-        df2.loc[local_low_price, f'pivot_{pivot_range}'] = 2
-        df2.loc[HH_condition, f'pivot_{pivot_range}'] = 3
-        df2.loc[LL_condition, f'pivot_{pivot_range}'] = 4
-        df2.loc[LH_condition, f'pivot_{pivot_range}'] = 5
-        df2.loc[HL_condition, f'pivot_{pivot_range}'] = 6
+        df.loc[local_high_price, f'pivot'] = 1
+        df.loc[local_low_price, f'pivot'] = 2
+        df.loc[HH_condition, f'pivot'] = 3
+        df.loc[LL_condition, f'pivot'] = 4
+        df.loc[LH_condition, f'pivot'] = 5
+        df.loc[HL_condition, f'pivot'] = 6
 
-        df2.loc[df2[f'pivot_{pivot_range}'] == 3, f'HH_{pivot_range}_idx'] = df2['idx']
-        df2.loc[df2[f'pivot_{pivot_range}'] == 4, f'LL_{pivot_range}_idx'] = df2['idx']
-        df2.loc[df2[f'pivot_{pivot_range}'] == 5, f'LH_{pivot_range}_idx'] = df2['idx']
-        df2.loc[df2[f'pivot_{pivot_range}'] == 6, f'HL_{pivot_range}_idx'] = df2['idx']
+        df.loc[df[f'pivot'] == 3, f'HH_idx'] = df['idx']
+        df.loc[df[f'pivot'] == 4, f'LL_idx'] = df['idx']
+        df.loc[df[f'pivot'] == 5, f'LH_idx'] = df['idx']
+        df.loc[df[f'pivot'] == 6, f'HL_idx'] = df['idx']
 
-        df2[f'HH_{pivot_range}_idx'] = df2[f'HH_{pivot_range}_idx'].ffill()
-        df2[f'LL_{pivot_range}_idx'] = df2[f'LL_{pivot_range}_idx'].ffill()
-        df2[f'LH_{pivot_range}_idx'] = df2[f'LH_{pivot_range}_idx'].ffill()
-        df2[f'HL_{pivot_range}_idx'] = df2[f'HL_{pivot_range}_idx'].ffill()
+        df[f'HH_idx'] = df[f'HH_idx'].ffill()
+        df[f'LL_idx'] = df[f'LL_idx'].ffill()
+        df[f'LH_idx'] = df[f'LH_idx'].ffill()
+        df[f'HL_idx'] = df[f'HL_idx'].ffill()
 
-        df2[f'HH_{pivot_range}_idx'] = df2[f'HH_{pivot_range}_idx'].fillna(0)
-        df2[f'LL_{pivot_range}_idx'] = df2[f'LL_{pivot_range}_idx'].fillna(0)
-        df2[f'LH_{pivot_range}_idx'] = df2[f'LH_{pivot_range}_idx'].fillna(0)
-        df2[f'HL_{pivot_range}_idx'] = df2[f'HL_{pivot_range}_idx'].fillna(0)
+
+
 
         ############################## MARK VALUES ##############################
-        df2.loc[df2[f'pivot_{pivot_range}'] == 3, f'HH_{pivot_range}'] = df2['pivotprice']
-        df2.loc[df2[f'pivot_{pivot_range}'] == 4, f'LL_{pivot_range}'] = df2['pivotprice']
-        df2.loc[df2[f'pivot_{pivot_range}'] == 5, f'LH_{pivot_range}'] = df2['pivotprice']
-        df2.loc[df2[f'pivot_{pivot_range}'] == 6, f'HL_{pivot_range}'] = df2['pivotprice']
+        df.loc[df[f'pivot'] == 3, f'HH'] = df['pivotprice']
+        df.loc[df[f'pivot'] == 4, f'LL'] = df['pivotprice']
+        df.loc[df[f'pivot'] == 5, f'LH'] = df['pivotprice']
+        df.loc[df[f'pivot'] == 6, f'HL'] = df['pivotprice']
 
-        df2[f'HH_{pivot_range}'] = df2[f'HH_{pivot_range}'].ffill()
-        df2[f'LL_{pivot_range}'] = df2[f'LL_{pivot_range}'].ffill()
-        df2[f'LH_{pivot_range}'] = df2[f'LH_{pivot_range}'].ffill()
-        df2[f'HL_{pivot_range}'] = df2[f'HL_{pivot_range}'].ffill()
+        df[f'HH'] = df[f'HH'].ffill()
+        df[f'LL'] = df[f'LL'].ffill()
+        df[f'LH'] = df[f'LH'].ffill()
+        df[f'HL'] = df[f'HL'].ffill()
 
-        df2[f'HH_{pivot_range}_shift'] = df2.loc[df2[f'pivot_{pivot_range}'] == 3, 'pivotprice'].shift(1)
-        df2[f'LL_{pivot_range}_shift'] = df2.loc[df2[f'pivot_{pivot_range}'] == 4, 'pivotprice'].shift(1)
-        df2[f'LH_{pivot_range}_shift'] = df2.loc[df2[f'pivot_{pivot_range}'] == 5, 'pivotprice'].shift(1)
-        df2[f'HL_{pivot_range}_shift'] = df2.loc[df2[f'pivot_{pivot_range}'] == 6, 'pivotprice'].shift(1)
+        df[f'HH_shift'] = df.loc[df[f'pivot'] == 3, 'pivotprice'].shift(1)
+        df[f'LL_shift'] = df.loc[df[f'pivot'] == 4, 'pivotprice'].shift(1)
+        df[f'LH_shift'] = df.loc[df[f'pivot'] == 5, 'pivotprice'].shift(1)
+        df[f'HL_shift'] = df.loc[df[f'pivot'] == 6, 'pivotprice'].shift(1)
 
-        df2[f'HH_{pivot_range}_shift'] = df2[f'HH_{pivot_range}_shift'].ffill()
-        df2[f'LL_{pivot_range}_shift'] = df2[f'LL_{pivot_range}_shift'].ffill()
-        df2[f'LH_{pivot_range}_shift'] = df2[f'LH_{pivot_range}_shift'].ffill()
-        df2[f'HL_{pivot_range}_shift'] = df2[f'HL_{pivot_range}_shift'].ffill()
+        df[f'HH_shift'] = df[f'HH_shift'].ffill()
+        df[f'LL_shift'] = df[f'LL_shift'].ffill()
+        df[f'LH_shift'] = df[f'LH_shift'].ffill()
+        df[f'HL_shift'] = df[f'HL_shift'].ffill()
 
-        df2[f'HH_{pivot_range}_idx_shift'] = df2.loc[df2[f'pivot_{pivot_range}'] == 3, 'idx'].shift(1)
-        df2[f'LL_{pivot_range}_idx_shift'] = df2.loc[df2[f'pivot_{pivot_range}'] == 4, 'idx'].shift(1)
-        df2[f'LH_{pivot_range}_idx_shift'] = df2.loc[df2[f'pivot_{pivot_range}'] == 5, 'idx'].shift(1)
-        df2[f'HL_{pivot_range}_idx_shift'] = df2.loc[df2[f'pivot_{pivot_range}'] == 6, 'idx'].shift(1)
+        df[f'HH_idx_shift'] = df.loc[df[f'pivot'] == 3, 'idx'].shift(1)
+        df[f'LL_idx_shift'] = df.loc[df[f'pivot'] == 4, 'idx'].shift(1)
+        df[f'LH_idx_shift'] = df.loc[df[f'pivot'] == 5, 'idx'].shift(1)
+        df[f'HL_idx_shift'] = df.loc[df[f'pivot'] == 6, 'idx'].shift(1)
 
-        df2[f'HH_{pivot_range}_idx_shift'] = df2[f'HH_{pivot_range}_idx_shift'].ffill()
-        df2[f'LL_{pivot_range}_idx_shift'] = df2[f'LL_{pivot_range}_idx_shift'].ffill()
-        df2[f'LH_{pivot_range}_idx_shift'] = df2[f'LH_{pivot_range}_idx_shift'].ffill()
-        df2[f'HL_{pivot_range}_idx_shift'] = df2[f'HL_{pivot_range}_idx_shift'].ffill()
+        df[f'HH_idx_shift'] = df[f'HH_idx_shift'].ffill()
+        df[f'LL_idx_shift'] = df[f'LL_idx_shift'].ffill()
+        df[f'LH_idx_shift'] = df[f'LH_idx_shift'].ffill()
+        df[f'HL_idx_shift'] = df[f'HL_idx_shift'].ffill()
 
-        df2.loc[df2[f'pivot_{pivot_range}'] == 3, f'HH_{pivot_range}_spread'] = df2['spread']
-        df2.loc[df2[f'pivot_{pivot_range}'] == 4, f'LL_{pivot_range}_spread'] = df2['spread']
-        df2.loc[df2[f'pivot_{pivot_range}'] == 5, f'LH_{pivot_range}_spread'] = df2['spread']
-        df2.loc[df2[f'pivot_{pivot_range}'] == 6, f'HL_{pivot_range}_spread'] = df2['spread']
-
-        df2[f'HH_{pivot_range}_spread'] = df2[f'HH_{pivot_range}_spread'].ffill()
-        df2[f'LL_{pivot_range}_spread'] = df2[f'LL_{pivot_range}_spread'].ffill()
-        df2[f'LH_{pivot_range}_spread'] = df2[f'LH_{pivot_range}_spread'].ffill()
-        df2[f'HL_{pivot_range}_spread'] = df2[f'HL_{pivot_range}_spread'].ffill()
-
-        peaks = df2[[f'HH_{pivot_range}', f'HL_{pivot_range}', f'LL_{pivot_range}', f'LH_{pivot_range}',
-                     f'HH_{pivot_range}_shift', f'HL_{pivot_range}_shift', f'LL_{pivot_range}_shift',
-                     f'LH_{pivot_range}_shift',
-                     f'HH_{pivot_range}_idx', f'HL_{pivot_range}_idx', f'LL_{pivot_range}_idx', f'LH_{pivot_range}_idx',
-                     f'pivot_{pivot_range}']]
 
         """
-        
+
         buy_liq_cond = (
-                ((df2[f'pivot_{pivot_range}'] == 6)
-                 & (df2[f'HL_{pivot_range}_spread'] < 20)
+                ((df[f'pivot'] == 6)
+                 & (df[f'HL_spread'] < 20)
                  ) |
-                ((df2[f'pivot_{pivot_range}'] == 4)
-                 & (df2[f'LL_{pivot_range}_spread'] < 20)
+                ((df[f'pivot'] == 4)
+                 & (df[f'LL_spread'] < 20)
                  )
         )
 
-        buy_liq = df2.loc[buy_liq_cond, ['pivotprice', 'pivot_body', 'idxx', 'time']]
+        buy_liq = df.loc[buy_liq_cond, ['pivotprice', 'pivot_body', 'idx', 'time']]
 
         # Warunek dla bearish OB (pivot 3 = HH, pivot 5 = LH)
         sell_liq_cond = (
-                ((df2[f'pivot_{pivot_range}'] == 3)
-                 & (df2[f'HH_{pivot_range}_spread'] < 20)
+                ((df[f'pivot'] == 3)
+                 & (df[f'HH_spread'] < 20)
                  ) |
-                ((df2[f'pivot_{pivot_range}'] == 5)
-                 & (df2[f'LH_{pivot_range}_spread'] < 20)
+                ((df[f'pivot'] == 5)
+                 & (df[f'LH_spread'] < 20)
                  )
         )
 
-        sell_liq = df2.loc[sell_liq_cond, ['pivotprice', 'pivot_body', 'idxx', 'time']]
+        sell_liq = df.loc[sell_liq_cond, ['pivotprice', 'pivot_body', 'idx', 'time']]
 
         buy_liq_renamed = buy_liq.rename(columns={'pivotprice': 'low_boundary', 'pivot_body': 'high_boundary'})
 
         bearish_ob_renamed = sell_liq.rename(columns={'pivotprice': 'high_boundary', 'pivot_body': 'low_boundary'})
-        
+
         """
-        self.df = df2
-        return df2
+        return df
+
+    def detect_eqh_eql_from_pivots(
+            self,
+            df: pd.DataFrame,
+            eq_atr_mult: float = 0.2,
+            prefix: str = ""
+    ) -> pd.DataFrame:
+        """
+        Detect Equal High (EQH) and Equal Low (EQL) levels based purely on
+        pivot structure (HH, LH, LL, HL) using vectorized pandas logic only.
+
+        Assumptions:
+        - Pivot columns already exist and are forward-filled:
+            HH, LH, LL, HL
+            HH_idx, LH_idx, LL_idx, HL_idx
+        - atr exists
+        - No loops, no apply, no candle logic
+
+        Output columns:
+        - EQH (bool)
+        - EQL (bool)
+        - EQH_level (float)
+        - EQL_level (float)
+        """
+
+
+        # =========================
+        # Threshold
+        # =========================
+        eq_threshold = df['atr'] * eq_atr_mult
+
+        # =========================
+        # EQH: HH–HH
+        # =========================
+        eqh_hh = (
+                (df['HH_idx'].notna()) &
+                (df['HH_idx_shift'].notna()) &
+                (df['HH_idx'] != df['HH_idx_shift']) &
+                ((df['HH'] - df['HH_shift']).abs() <= eq_threshold)
+        )
+
+        # =========================
+        # EQH: HH–LH
+        # =========================
+        eqh_hh_lh = (
+                (df['LH_idx'].notna()) &
+                (df['HH_idx'].notna()) &
+                (df['LH_idx'] > df['HH_idx']) &
+                (df['LH_idx'] != df['LH_idx_shift']) &
+                ((df['LH'] - df['HH']).abs() <= eq_threshold)
+        )
+
+        df[f'{prefix}EQH'] = eqh_hh | eqh_hh_lh
+
+        # EQH level
+        df[f'{prefix}EQH_level'] = np.where(
+            eqh_hh, df['HH'],
+            np.where(eqh_hh_lh, df['HH'], np.nan)
+        )
+        df[f'{prefix}EQH_level'] = df[f'{prefix}EQH_level'].ffill()
+
+        # =========================
+        # EQL: LL–LL
+        # =========================
+        eql_ll = (
+                (df['LL_idx'].notna()) &
+                (df['LL_idx_shift'].notna()) &
+                (df['LL_idx'] != df['LL_idx_shift']) &
+                ((df['LL'] - df['LL_shift']).abs() <= eq_threshold)
+        )
+
+        # =========================
+        # EQL: LL–HL
+        # =========================
+        eql_ll_hl = (
+                (df['HL_idx'].notna()) &
+                (df['LL_idx'].notna()) &
+                (df['HL_idx'] > df['LL_idx']) &
+                (df['HL_idx'] != df['HL_idx_shift']) &
+                ((df['HL'] - df['LL']).abs() <= eq_threshold)
+        )
+
+        df[f'{prefix}EQL'] = eql_ll | eql_ll_hl
+
+        # EQL level
+        df[f'{prefix}EQL_level'] = np.where(
+            eql_ll, df['LL'],
+            np.where(eql_ll_hl, df['LL'], np.nan)
+        )
+        df[f'{prefix}EQL_level'] = df[f'{prefix}EQL_level'].ffill()
+
+
+
+        return df
 
     # =============================================================
     # 2️⃣ DETEKCJA POZIOMÓW FIBO
     # =============================================================
-    def detect_fibo(self):
-        df = self.df.copy()
-        pivot_range = self.pivot_range
+    def detect_fibo(self, df):
 
-        HH, LL, LH, HL = df[f'HH_{pivot_range}'], df[f'LL_{pivot_range}'], df[f'LH_{pivot_range}'], df[f'HL_{pivot_range}']
+
+        HH, LL, LH, HL = df[f'HH'], df[f'LL'], df[f'LH'], df[
+            f'HL']
         HH_idx, LL_idx, LH_idx, HL_idx = (
-            df[f'HH_{pivot_range}_idx'], df[f'LL_{pivot_range}_idx'],
-            df[f'LH_{pivot_range}_idx'], df[f'HL_{pivot_range}_idx']
+            df[f'HH_idx'], df[f'LL_idx'],
+            df[f'LH_idx'], df[f'HL_idx']
         )
 
-
         # Lokalne poziomy
-        df[f'last_low_{pivot_range}'] = np.where(LL_idx > HL_idx, LL, HL)
-        df[f'last_high_{pivot_range}'] = np.where(HH_idx > LH_idx, HH, LH)
-        rise = df[f'last_high_{pivot_range}'] - df[f'last_low_{pivot_range}']
+        df[f'last_low'] = np.where(LL_idx > HL_idx, LL, HL)
+        df[f'last_high'] = np.where(HH_idx > LH_idx, HH, LH)
+        rise = df[f'last_high'] - df[f'last_low']
 
-        cond_up = df[f'last_low_{pivot_range}'] < df[f'last_high_{pivot_range}']
+        cond_up = df[f'last_low'] < df[f'last_high']
         cond_down = ~cond_up
-        fib_levels = [0.5, 0.618, 0.66, 1.25, 1.618]
+        fib_levels = [0.5, 0.618, 0.66, 1.272, 1.618]
 
         for coeff in fib_levels:
-            df.loc[cond_up, f'fibo_local_{str(coeff).replace(".", "")}_{pivot_range}'] = (
-                df[f'last_high_{pivot_range}'] - rise * coeff
+            df.loc[cond_up, f'fibo_local_{str(coeff).replace(".", "")}'] = (
+                    df[f'last_high'] - rise * coeff
             )
-            df.loc[cond_down, f'fibo_local_{str(coeff).replace(".", "")}_{pivot_range}_bear'] = (
-                df[f'last_low_{pivot_range}'] + rise * coeff
+            df.loc[cond_down, f'fibo_local_{str(coeff).replace(".", "")}_bear'] = (
+                    df[f'last_low'] + rise * coeff
             )
 
-        self.df = df
+        df['range_mid'] = np.where(
+            cond_up,
+            df['fibo_local_05'],
+            df['fibo_local_05_bear']
+        )
+
+        df['in_discount'] = df['low'] < df['range_mid']
+        df['in_premium'] = df['high'] > df['range_mid']
+
         return df
 
     # =============================================================
@@ -191,350 +277,935 @@ class PriceStructureDetector:
     # =============================================================
 
 
-    # =============================================================
-    # 4️⃣ DETEKCJA SWEEPÓW
-    # =============================================================
-    def detect_sweeps(self, rebound_ratio: float = 0.005, lookback: int = 5):
+
+    def detect_trend_regime(
+        self,
+        df,
+        atr_mult: float = 1.0,
+    ):
         """
-        Sweep = cena nadbija poziom (np. HH/LL) i potem szybko wraca w przeciwnym kierunku.
-        rebound_ratio - minimalna zmiana procentowa od wybicia, aby uznać rebound.
-        lookback - ile świec wstecz analizować po nadbiciu.
+        Finite State Machine (FSM) – Structural Market Regime Detector
+
+        CEL FUNKCJI
+        -----------
+        Wykrywa i utrzymuje aktualny reżim rynku (bull / bear / range)
+        w sposób deterministyczny, wydajny i odporny na szum,
+        bazując WYŁĄCZNIE na strukturze (BOS / MSS) oraz potwierdzonym momentum.
+
+        Funkcja stanowi FUNDAMENT warstwy "State Layer".
+        NIE generuje sygnałów i NIE podejmuje decyzji tradingowych.
+
+        ------------------------------------------------------------------
+        INPUT
+        ------------------------------------------------------------------
+        df:
+            DataFrame zawierający zdarzenia strukturalne HTF:
+            - bos_bull_event : bool
+            - bos_bear_event : bool
+            - mss_bull_event : bool
+            - mss_bear_event : bool
+            - follow_through_atr : float
+              (miara displacementu / momentum po BOS)
+
+        atr_mult:
+            Minimalny próg follow-through wymagany, aby BOS
+            został uznany za strukturalnie ważny.
+            Chroni FSM przed fake breakoutami.
+
+        ------------------------------------------------------------------
+        LOGIKA FSM (UPROSZCZONA)
+        ------------------------------------------------------------------
+        range:
+            BOS bull + follow-through  → bull
+            BOS bear + follow-through  → bear
+
+        bull:
+            BOS bear + follow-through  → bear   (FLIP)
+            MSS bear                  → range  (CANCEL)
+
+        bear:
+            BOS bull + follow-through  → bull   (FLIP)
+            MSS bull                  → range  (CANCEL)
+
+        FSM NIE:
+        - zgaduje przyszłości
+        - nie używa rolling / ffill
+        - nie reaguje na pojedyncze bary momentum
+
+        ------------------------------------------------------------------
+        OUTPUT FEATURES (KLUCZOWE)
+        ------------------------------------------------------------------
+
+        market_regime : {'range', 'bull', 'bear'}
+            Aktualny stan strukturalny rynku.
+            Jest JEDYNYM źródłem prawdy o kierunku struktury.
+            NIE jest sygnałem.
+
+        trend_active : bool
+            True gdy market_regime ∈ {'bull', 'bear'}.
+            Używane WYŁĄCZNIE jako filtr środowiska,
+            nigdy jako trigger wejścia.
+
+        regime_duration : int
+            Liczba barów spędzonych w AKTUALNYM reżimie.
+            Resetowana przy każdym flipie lub cancelu.
+
+            Zastosowanie:
+            - odróżnienie fake trendów od dojrzałych
+            - filtrowanie zbyt krótkich struktur
+
+        regime_flip : bool
+            True TYLKO na barze, w którym nastąpił flip
+            (bull ↔ bear).
+
+            Interpretacja:
+            - bar zmiany dominującej struktury
+            - najwyższe ryzyko chaosu
+            - NIE MIEJSCE na wejścia trendowe
+
+        regime_cancel : bool
+            True na barze, gdzie trend został anulowany
+            przez MSS (powrót do range).
+
+            Interpretacja:
+            - utrata struktury
+            - potencjalna akumulacja / dystrybucja
+            - brak biasu kierunkowego
+
+        regime_age_norm : float
+            Znormalizowany wiek reżimu:
+                regime_duration / mean(duration | regime)
+
+            Co oznacza:
+            - < 0.5 → bardzo świeży (wysokie ryzyko fake)
+            - 0.5–1.2 → zdrowy
+            - > 1.5 → dojrzały / potencjalnie zmęczony
+
+            Użycie:
+            - filtr jakości trendu
+            - adaptacja TP / SL
+            - ważenie kontekstu
+
+            NIE JEST:
+            - predyktorem flipu
+            - sygnałem wejścia
+
+        bars_since_flip : int
+            Liczba barów od ostatniego FLIPU reżimu.
+
+            Co mierzy:
+            - stabilność struktury po zmianie dominacji
+
+            Interpretacja:
+            - 0–3  → chaos po flipie
+            - 5–12 → struktura stabilna (optymalna dla entry)
+            - >20  → dojrzały trend, mniejszy potencjał RR
+
+            Użycie:
+            - gating HTF (np. bars_since_flip >= 8)
+            - modulacja ryzyka
+            - confidence score kontekstu
+
+        ------------------------------------------------------------------
+        JAK UŻYWAĆ TEJ FUNKCJI
+        ------------------------------------------------------------------
+        - zawsze PRZED generacją sygnałów
+        - jako warstwa nadrzędna (HTF bias)
+        - w połączeniu z:
+            * price action context
+            * entry logic
+            * risk engine
+
+        ------------------------------------------------------------------
+        JAK NIE UŻYWAĆ
+        ------------------------------------------------------------------
+        - NIE traktować żadnego outputu jako sygnału
+        - NIE próbować przewidywać flipów
+        - NIE łączyć FSM z rolling ffill logic
+
+        ------------------------------------------------------------------
+        FILOZOFIA
+        ------------------------------------------------------------------
+        Ta funkcja odpowiada wyłącznie na pytanie:
+
+            "JAKA jest aktualna struktura rynku
+             i jak stabilna ona jest?"
+
+        Decyzje tradingowe należą do kolejnych warstw.
         """
-        df = self.df.copy()
-        pivot_range = self.pivot_range
 
-        sweeps = []
-        for level_name in ['HH', 'LL', 'LH', 'HL']:
-            level = df[f'{level_name}_{pivot_range}']
-            level_col = f'sweep_{level_name}_{pivot_range}'
+        n = len(df)
 
-            # Sweep na szczycie: cena nadbija HH i spada o >= rebound_ratio w lookback świec
-            if level_name in ['HH', 'LH']:
-                sweep_cond = (
-                    (df['high'] > level) &
-                    (df['close'].shift(-lookback) < df['close'] * (1 - rebound_ratio))
-                )
-            else:
-                sweep_cond = (
-                    (df['low'] < level) &
-                    (df['close'].shift(-lookback) > df['close'] * (1 + rebound_ratio))
-                )
+        bos_bull = df['bos_bull_event'].values
+        bos_bear = df['bos_bear_event'].values
+        mss_bull = df['mss_bull_event'].values
+        mss_bear = df['mss_bear_event'].values
+        follow = df['follow_through_atr'].values
 
-            df[level_col] = np.where(sweep_cond, level, np.nan)
-            sweeps.append(level_col)
+        regime = np.empty(n, dtype=np.int8)
+        duration = np.zeros(n, dtype=np.int32)
+        flip = np.zeros(n, dtype=bool)
+        cancel = np.zeros(n, dtype=bool)
 
-        self.df = df
-        return df[sweeps]
+        # encoding:
+        # 0 = range, 1 = bull, -1 = bear
+        state = 0
+        dur = 0
 
-    def detect_price_action(self):
-        df = self.df.copy()
-        pivot_range = self.pivot_range
+        for i in range(n):
 
-        HH, HH_idx = df[f'HH_{pivot_range}'], df[f'HH_{pivot_range}_idx']
-        LL, LL_idx = df[f'LL_{pivot_range}'], df[f'LL_{pivot_range}_idx']
-        LH, LH_idx = df[f'LH_{pivot_range}'], df[f'LH_{pivot_range}_idx']
-        HL, HL_idx = df[f'HL_{pivot_range}'], df[f'HL_{pivot_range}_idx']
+            follow_ok = follow[i] >= atr_mult
+
+            if state == 0:  # RANGE
+                if bos_bull[i] and follow_ok:
+                    state = 1
+                    dur = 1
+                elif bos_bear[i] and follow_ok:
+                    state = -1
+                    dur = 1
+                else:
+                    dur += 1
+
+            elif state == 1:  # BULL
+                if bos_bear[i] and follow_ok:
+                    state = -1
+                    dur = 1
+                    flip[i] = True
+                elif mss_bear[i]:
+                    state = 0
+                    dur = 1
+                    cancel[i] = True
+                else:
+                    dur += 1
+
+            elif state == -1:  # BEAR
+                if bos_bull[i] and follow_ok:
+                    state = 1
+                    dur = 1
+                    flip[i] = True
+                elif mss_bull[i]:
+                    state = 0
+                    dur = 1
+                    cancel[i] = True
+                else:
+                    dur += 1
+
+            regime[i] = state
+            duration[i] = dur
+
+        # map back to labels
+        mapping = np.array(['range', 'bull', 'bear'])
+        df['market_regime'] = mapping[(regime + 1)]
+        df['regime_duration'] = duration
+        df['regime_flip'] = flip
+        df['regime_cancel'] = cancel
+        df['trend_active'] = regime != 0
+
+        df['regime_age_norm'] = (
+                df['regime_duration'] /
+                df.groupby('market_regime')['regime_duration'].transform('mean')
+        )
+
+        df[df.regime_flip].groupby('market_regime')['regime_duration'].mean()
+
+        df['bars_since_flip'] = (
+            df['regime_flip']
+            .astype(int)
+            .groupby(df['market_regime'])
+            .cumsum()
+        )
+
+    def detect_price_action(self, df):
+        """
+        Price Action detection with explicit EVENT vs STATE separation.
+
+        Outputs per structure:
+        - *_event        : True only on event bar
+        - *_level        : price level created by event (ffilled)
+        - *_event_idx    : index of event bar (ffilled, state)
+        """
 
         actions = [
-            {'name': 'mss_bull', 'level': LH, 'cond': (df['close'] > LH) & (df['close'].shift(1) > LH)},
-            {'name': 'mss_bear', 'level': HL, 'cond': (df['close'] < HL) & (df['close'].shift(1) < HL)},
-            {'name': 'bos_bull', 'level': HH, 'cond': (df['close'] > HH) & (df['close'].shift(1) > HH)},
-            {'name': 'bos_bear', 'level': LL, 'cond': (df['close'] < LL) & (df['close'].shift(1) < LL)},
+            # MSS
+            {
+                'name': 'mss_bull',
+                'cond': (df['close'] > df['LH']) & (df['close'].shift(1) <= df['LH']),
+                'level': df['LH'],
+            },
+            {
+                'name': 'mss_bear',
+                'cond': (df['close'] < df['HL']) & (df['close'].shift(1) >= df['HL']),
+                'level': df['HL'],
+            },
+
+            # BOS
+            {
+                'name': 'bos_bull',
+                'cond': (df['close'] > df['HH']) & (df['close'].shift(1) <= df['HH']),
+                'level': df['HH'],
+            },
+            {
+                'name': 'bos_bear',
+                'cond': (df['close'] < df['LL']) & (df['close'].shift(1) >= df['LL']),
+                'level': df['LL'],
+            },
         ]
 
         for act in actions:
             name = act['name']
-            level_col = f'{name}_{pivot_range}'
-            idx_col = f'{name}_{pivot_range}_idx'
 
-            df[level_col] = np.where(act['cond'], act['level'], np.nan)
-            df[idx_col] = np.where(act['cond'], df.index, np.nan)
-            df[level_col] = pd.Series(df[level_col]).ffill()
-            df[idx_col] = pd.Series(df[idx_col]).ffill()
+            # ==========================
+            # EVENT (impulse)
+            # ==========================
+            df[f'{name}_event'] = act['cond']
 
-        self.df = df
-        return self.df
+            # ==========================
+            # LEVEL CREATED BY EVENT
+            # ==========================
+            df[f'{name}_level'] = np.where(
+                act['cond'],
+                act['level'],
+                np.nan
+            )
 
-    def generate_price_action_signals(self):
-        df = self.df.copy()
-        r = self.pivot_range
+            # ==========================
+            # EVENT INDEX (STATEFUL)
+            # ==========================
+            df[f'{name}_event_idx'] = np.where(
+                act['cond'],
+                df.index,
+                np.nan
+            )
 
-        # indeksy eventów
-        bos_bull_idx = df.get(f'bos_bull_{r}_idx')
-        bos_bear_idx = df.get(f'bos_bear_{r}_idx')
-        mss_bull_idx = df.get(f'mss_bull_{r}_idx')
-        mss_bear_idx = df.get(f'mss_bear_{r}_idx')
+            # ==========================
+            # FORWARD FILL STATE
+            # ==========================
+            df[f'{name}_level'] = df[f'{name}_level'].ffill()
+            df[f'{name}_event_idx'] = df[f'{name}_event_idx'].ffill()
 
-        bos_bull = df.get(f'bos_bull_{r}')
-        bos_bear = df.get(f'bos_bear_{r}')
-        mss_bull = df.get(f'mss_bull_{r}')
-        mss_bear = df.get(f'mss_bear_{r}')
+        print(df[[
+            'bos_bull_event_idx', 'bos_bear_event_idx',
+            'mss_bull_event_idx', 'mss_bear_event_idx', 'HL'
+        ]].tail(200))
 
-        # --- WYZNACZAMY NAJNOWSZY EVENT ---
-        event_map = {
-            'bos_bull': bos_bull_idx,
-            'bos_bear': bos_bear_idx,
-            'mss_bull': mss_bull_idx,
-            'mss_bear': mss_bear_idx,
+
+
+        return df
+
+    def generate_price_action_context(self, df):
+        """
+        Priority-aware PA event generator.
+
+        Rules:
+        - BOS has absolute priority
+        - MSS is ignored for N bars after BOS
+        """
+
+        df['pa_event_type'] = None
+        df['pa_event_dir'] = None
+        df['pa_event_idx'] = np.nan
+        df['pa_level'] = np.nan
+
+        bos_bull = df['bos_bull_event']
+        bos_bear = df['bos_bear_event']
+
+        # ==========================
+        # BOS (ABSOLUTE PRIORITY)
+        # ==========================
+        df.loc[bos_bull, 'pa_event_type'] = 'bos'
+        df.loc[bos_bull, 'pa_event_dir'] = 'bull'
+        df.loc[bos_bull, 'pa_event_idx'] = df.loc[bos_bull, 'bos_bull_event_idx']
+        df.loc[bos_bull, 'pa_level'] = df.loc[bos_bull, 'bos_bull_level']
+
+        df.loc[bos_bear, 'pa_event_type'] = 'bos'
+        df.loc[bos_bear, 'pa_event_dir'] = 'bear'
+        df.loc[bos_bear, 'pa_event_idx'] = df.loc[bos_bear, 'bos_bear_event_idx']
+        df.loc[bos_bear, 'pa_level'] = df.loc[bos_bear, 'bos_bear_level']
+
+        # ==========================
+        # MSS (ONLY IF NO RECENT BOS)
+        # ==========================
+        NO_RECENT_BOS = df['bars_since_bos'] > 2  # ← kluczowy parametr
+
+        mss_bull = df['mss_bull_event'] & NO_RECENT_BOS & df['pa_event_type'].isna()
+        mss_bear = df['mss_bear_event'] & NO_RECENT_BOS & df['pa_event_type'].isna()
+
+        df.loc[mss_bull, 'pa_event_type'] = 'mss'
+        df.loc[mss_bull, 'pa_event_dir'] = 'bull'
+        df.loc[mss_bull, 'pa_event_idx'] = df.loc[mss_bull, 'mss_bull_event_idx']
+        df.loc[mss_bull, 'pa_level'] = df.loc[mss_bull, 'mss_bull_level']
+
+        df.loc[mss_bear, 'pa_event_type'] = 'mss'
+        df.loc[mss_bear, 'pa_event_dir'] = 'bear'
+        df.loc[mss_bear, 'pa_event_idx'] = df.loc[mss_bear, 'mss_bear_event_idx']
+        df.loc[mss_bear, 'pa_level'] = df.loc[mss_bear, 'mss_bear_level']
+
+        df['pa_event_idx'] = df['pa_event_idx'].ffill()
+        df['pa_event_type'] = df['pa_event_type'].ffill()
+        df['pa_event_dir'] = df['pa_event_dir'].ffill()
+        df['pa_level'] = df['pa_level'].ffill()
+
+        return df
+
+    # ==========================
+    # PA CONTEXT PARAMETERS
+    # ==========================
+
+    def enrich_pa_context(self, df):
+
+        PA_COUNTER_MAX_BARS = 10
+        PA_COUNTER_ATR_MULT = 2
+
+        PA_CONT_MIN_BARS = 3
+        PA_CONT_MIN_ATR = 0.8
+        PA_CONT_MAX_ATR = 2.5
+
+
+
+        # TIME SINCE PA EVENT
+        df['bars_since_pa'] = df['idx']- df['pa_event_idx']
+
+        print(df[['idx', 'pa_event_idx', 'bars_since_pa']].tail(20))
+
+        # DISTANCE FROM PA LEVEL
+        df['pa_dist'] = abs(df['close'] - df['pa_level'])
+        df['pa_dist_atr'] = df['pa_dist'] / df['atr']
+
+        # COUNTER-TREND ALLOWED
+        df['pa_counter_allowed'] = (
+                (df['bars_since_pa'] <= PA_COUNTER_MAX_BARS) &
+                (df['pa_dist_atr'] <= PA_COUNTER_ATR_MULT)
+        )
+
+        # CONTINUATION ALLOWED
+        df['pa_continuation_allowed'] = (
+                (df['bars_since_pa'] >= PA_CONT_MIN_BARS) &
+                (df['pa_dist_atr'] >= PA_CONT_MIN_ATR) &
+                (df['pa_dist_atr'] <= PA_CONT_MAX_ATR)
+        )
+
+        return df
+
+
+    def track_bos_follow_through(self, df):
+
+        # ===============================
+        # 1️⃣ INICJALIZACJA
+        # ===============================
+        df['bos_dir'] = None
+        df['bos_price'] = np.nan
+        df['bos_idx_event'] = np.nan
+
+        # ===============================
+        # 2️⃣ BOS EVENT (JEDNOZNACZNIE)
+        # ===============================
+        df.loc[df['bos_bull_event'], 'bos_dir'] = 'bull'
+        df.loc[df['bos_bear_event'], 'bos_dir'] = 'bear'
+
+        df.loc[df['bos_bull_event'], 'bos_price'] = df['bos_bull_level']
+        df.loc[df['bos_bear_event'], 'bos_price'] = df['bos_bear_level']
+
+        mask = df['bos_bull_event'] | df['bos_bear_event']
+        df.loc[mask, 'bos_idx_event'] = df.index[mask]
+
+        # ===============================
+        # 3️⃣ FORWARD FILL – AKTYWNY BOS
+        # ===============================
+        df['bos_dir'] = df['bos_dir'].ffill()
+        df['bos_price'] = df['bos_price'].ffill()
+        df['bos_idx_event'] = df['bos_idx_event'].ffill()
+
+        # ===============================
+        # 4️⃣ BARS SINCE BOS
+        # ===============================
+        df['bars_since_bos'] = df.index - df['bos_idx_event']
+
+        # ===============================
+        # 5️⃣ ATR W MOMENCIE BOS
+        # ===============================
+        df['atr_at_bos'] = np.where(
+            df.index == df['bos_idx_event'],
+            df['atr'],
+            np.nan
+        )
+        df['atr_at_bos'] = df['atr_at_bos'].ffill()
+
+        # ===============================
+        # 6️⃣ MFE / MAE
+        # ===============================
+        df['mfe_from_bos'] = np.nan
+        df['mae_from_bos'] = np.nan
+
+        bull_mask = df['bos_dir'] == 'bull'
+        bear_mask = df['bos_dir'] == 'bear'
+
+        df.loc[bull_mask, 'mfe_from_bos'] = df['high'] - df['bos_price']
+        df.loc[bull_mask, 'mae_from_bos'] = df['bos_price'] - df['low']
+
+        df.loc[bear_mask, 'mfe_from_bos'] = df['bos_price'] - df['low']
+        df.loc[bear_mask, 'mae_from_bos'] = df['high'] - df['bos_price']
+
+        # ===============================
+        # 7️⃣ NORMALIZACJA
+        # ===============================
+        df['follow_through_atr'] = df['mfe_from_bos'] / df['atr_at_bos']
+        df['adverse_atr'] = df['mae_from_bos'] / df['atr_at_bos']
+
+        return df
+
+    def detect_microstructure_regime(
+            self,
+            df,
+            atr_short: int = 14,
+            atr_long: int = 100,
+            range_lookback: int = 20,
+            impulse_mult: float = 1.2,
+            compression_thr: float = 0.6,
+            expansion_thr: float = 1.4,
+    ):
+        """
+        ====================================================================
+        MICROSTRUCTURE FSM & BIAS – STRATEGY USAGE DOCSTRING
+        ====================================================================
+
+        Ten moduł NIE generuje sygnałów tradingowych.
+        Dostarcza WYŁĄCZNIE kontekst decyzyjny oparty o mikrostrukturę rynku.
+
+        Każda kolumna odpowiada na inne pytanie:
+            - „JAK rynek się porusza?”
+            - „GDZIE jest asymetria?”
+            - „CZY wolno grać momentum / countertrend?”
+
+        --------------------------------------------------------------------
+        PODSTAWOWA DETEKCJA STANU
+        --------------------------------------------------------------------
+
+        microstructure_regime : {'normal', 'compression', 'expansion', 'exhaustion'}
+
+        Znaczenie:
+            normal
+                - baseline execution
+                - brak asymetrii
+                - najlepszy stan dla standardowych setupów
+
+            compression
+                - HTF / LTF coil (akumulacja, zwijanie zakresu)
+                - NIE jest martwym rynkiem
+                - brak natychmiastowego edge
+                - edge pojawia się w przejściu → expansion
+
+            expansion
+                - impuls / displacement
+                - najwyższy follow-through
+                - jedyny stan z edge dla continuation
+
+            exhaustion
+                - wysoka zmienność bez progresu
+                - statystyczny zwrot przeciwko impulsowi
+                - idealny kontekst dla fade / sweep / risky countertrend
+
+        UWAGA:
+            Sam stan NIE jest sygnałem.
+            Edge siedzi w SEKWENCJI stanów.
+
+        --------------------------------------------------------------------
+        SEKWENCJA STANÓW
+        --------------------------------------------------------------------
+
+        micro_transition : '<prev>_to_<current>'
+
+        Przykłady:
+            compression_to_expansion
+            expansion_to_exhaustion
+            normal_to_expansion
+
+        Znaczenie:
+            Sekwencja stanów jest ważniejsza niż aktualny stan.
+            FSM używa transition, nie samego regime.
+
+        --------------------------------------------------------------------
+        MIKROSTRUKTURALNY BIAS (ASYMETRIA)
+        --------------------------------------------------------------------
+
+        micro_bias : {'momentum_favorable', 'countertrend_favorable', 'balanced'}
+
+        Znaczenie:
+            momentum_favorable
+                - asymetria w kierunku impulsu
+                - continuation ma edge
+                - przykłady:
+                    * compression → expansion
+                    * normal → expansion
+
+            countertrend_favorable
+                - asymetria PRZECIWKO impulsowi
+                - idealne środowisko na:
+                    * fade
+                    * failed BOS
+                    * liquidity sweep
+                - typowo:
+                    * expansion → exhaustion
+
+            balanced
+                - brak asymetrii
+                - rynek w równowadze
+                - tylko standardowe, konserwatywne setupy
+
+        --------------------------------------------------------------------
+        PAMIĘĆ FSM (CZAS MA ZNACZENIE)
+        --------------------------------------------------------------------
+
+        bars_in_micro_bias : int
+
+        Znaczenie:
+            Liczba barów od wejścia w aktualny micro_bias.
+
+        Interpretacja:
+            momentum_favorable:
+                1–3 bary → najlepsze RR
+                >3       → momentum wygasa
+
+            countertrend_favorable:
+                1–2 bary → jedyne sensowne okno na fade
+                >2       → edge znika
+
+        --------------------------------------------------------------------
+        BLOKADY I POZWOLENIA (NIE SYGNAŁY)
+        --------------------------------------------------------------------
+
+        allow_momentum : bool
+            True:
+                - wolno grać continuation
+                - tylko gdy micro_bias == momentum_favorable
+                - tylko krótko po transition
+
+        block_momentum : bool
+            True:
+                - zakaz grania momentum
+                - szczególnie po:
+                    * expansion → exhaustion
+                    * exhaustion → normal
+
+        allow_countertrend : bool
+            True:
+                - wolno próbować fade / reversal
+                - tylko w wąskim oknie exhaustion
+
+        block_countertrend : bool
+            True:
+                - zakaz countertrend
+                - brak asymetrii lub zbyt późno
+                - świeży flip struktury (chaos)
+
+        --------------------------------------------------------------------
+        JAK UŻYWAĆ W STRATEGII
+        --------------------------------------------------------------------
+
+        1) Trend continuation (bez ryzyka):
+            - trend_active == True
+            - allow_momentum == True
+            - block_momentum == False
+            - bars_since_flip >= N
+
+        2) Ryzykowny countertrend (świadomy):
+            - bos_bull_event / bos_bear_event
+            - allow_countertrend == True
+            - block_countertrend == False
+            - mniejszy risk (np. 0.3R)
+
+        3) Gdy NIC nie jest True:
+            - NIE handluj
+            - rynek nie daje edge
+
+        --------------------------------------------------------------------
+        CZEGO NIE ROBIĆ
+        --------------------------------------------------------------------
+
+        ❌ Nie traktować żadnej kolumny jako sygnału wejścia
+        ❌ Nie optymalizować progów pod TF osobno
+        ❌ Nie grać countertrend poza exhaustion
+        ❌ Nie ignorować czasu (bars_in_micro_bias)
+
+        --------------------------------------------------------------------
+        FILOZOFIA
+        --------------------------------------------------------------------
+
+        Ten moduł nie mówi:
+            „KUP / SPRZEDAJ”
+
+        On mówi:
+            „KTO ma przewagę i JAKĄ”
+
+        Decyzje tradingowe należą do kolejnych warstw strategii.
+        """
+
+        # ===============================
+        # 1️⃣ ZMIENNOŚĆ RELATYWNA
+        # ===============================
+        df['atr_short'] = df['atr'].rolling(atr_short).mean()
+        df['atr_long'] = df['atr'].rolling(atr_long).mean()
+
+        df['atr_ratio'] = df['atr_short'] / df['atr_long']
+
+        # ===============================
+        # 2️⃣ RANGE / COMPRESSION
+        # ===============================
+        rolling_high = df['high'].rolling(range_lookback).max()
+        rolling_low = df['low'].rolling(range_lookback).min()
+
+        df['rolling_range'] = rolling_high - rolling_low
+        df['range_atr_ratio'] = df['rolling_range'] / df['atr_long']
+
+        # ===============================
+        # 3️⃣ IMPULSE vs OVERLAP
+        # ===============================
+        body = (df['close'] - df['open']).abs()
+        bar_range = (df['high'] - df['low']).replace(0, np.nan)
+
+        df['body_ratio'] = body / bar_range
+
+        df['impulse_bar'] = (
+                (bar_range > impulse_mult * bar_range.rolling(50).median()) &
+                (df['body_ratio'] > 0.6)
+        )
+
+        df['overlap_bar'] = (
+                (bar_range < 0.8 * df['atr']) &
+                (df['body_ratio'] < 0.4)
+        )
+
+        # rolling character
+        df['impulse_freq'] = df['impulse_bar'].rolling(10).mean()
+        df['overlap_freq'] = df['overlap_bar'].rolling(10).mean()
+
+        # ===============================
+        # 4️⃣ REGIME LOGIC (DETERMINISTIC)
+        # ===============================
+        regime = np.full(len(df), 'normal', dtype=object)
+
+        range_decay = (
+                df['rolling_range'] <
+                df['rolling_range'].rolling(50).median() * 0.7
+        )
+
+        # COMPRESSION
+        compression_mask = (
+                range_decay &
+                (df['overlap_freq'] > 0.55) &
+                (df['impulse_freq'] < 0.25)  # ← KLUCZ
+        )
+
+        # EXPANSION
+        expansion_mask = (
+                (df['impulse_freq'] > 0.45) &
+                (
+                        (df['atr_ratio'] > expansion_thr) |
+                        (df['impulse_freq'].shift(1) < 0.2)
+                )
+        )
+
+        # EXHAUSTION
+        exhaustion_mask = (
+                (df['atr_ratio'] > expansion_thr) &
+                (df['impulse_freq'] < 0.25) &
+                (df['overlap_freq'] > 0.4) &
+                (df['follow_through_atr'] < 1.2)
+        )
+
+        regime[compression_mask] = 'compression'
+        regime[expansion_mask] = 'expansion'
+        regime[exhaustion_mask] = 'exhaustion'
+
+        df['microstructure_regime'] = regime
+
+        # ===============================
+        # 5️⃣ FEATURES POMOCNICZE
+        # ===============================
+
+
+        df['volatility_state'] = np.where(
+            df['atr_ratio'] < 0.8, 'low',
+            np.where(df['atr_ratio'] > 1.3, 'high', 'normal')
+        )
+
+        df['micro_prev'] = df['microstructure_regime'].shift(1)
+
+        df['micro_transition'] = (
+                df['micro_prev'].astype(str) +
+                '_to_' +
+                df['microstructure_regime'].astype(str)
+        )
+
+        # =============================================================
+        # MICROSTRUCTURE FSM – SEKWENCJA STANÓW
+        # =============================================================
+
+        # 1️⃣ Poprzedni stan mikrostruktury
+        df['micro_prev'] = df['microstructure_regime'].shift(1)
+
+        # 2️⃣ Nazwa przejścia (sekcja deterministyczna)
+        df['micro_transition'] = (
+                df['micro_prev'].astype(str) +
+                '_to_' +
+                df['microstructure_regime'].astype(str)
+        )
+
+        # =============================================================
+        # MICROSTRUCTURE BIAS – POPRAWNA SEMANTYKA
+        # =============================================================
+
+        df['micro_bias'] = 'balanced'
+
+        # ==========================
+        # MOMENTUM FAVORABLE
+        # (KRÓTKIE OKNO PO TRANSITION)
+        # ==========================
+        df.loc[
+            df['micro_transition'].isin({
+                'compression_to_expansion',
+                'normal_to_expansion',
+            }),
+            'micro_bias'
+        ] = 'momentum_favorable'
+
+        # ==========================
+        # COUNTERTREND FAVORABLE
+        # (CAŁA FAZA EXHAUSTION)
+        # ==========================
+        df.loc[
+            df['microstructure_regime'] == 'exhaustion',
+            'micro_bias'
+        ] = 'countertrend_favorable'
+
+        # ==========================
+        # COUNTERTREND FAVORABLE
+        # ==========================
+        COUNTERTREND_FAVORABLE = {
+            'expansion_to_exhaustion',
         }
 
-        # znajdź indeks ostatniego nie-NaN eventu
-        df['last_event_idx'] = pd.concat(event_map.values(), axis=1).max(axis=1)
+        df.loc[
+            df['micro_transition'].isin(COUNTERTREND_FAVORABLE),
+            'micro_bias'
+        ] = 'countertrend_favorable'
 
-        # określ nazwę ostatniego eventu
-        df['structure_context'] = np.select(
-            [
-                bos_bull_idx == df['last_event_idx'],
-                bos_bear_idx == df['last_event_idx'],
-                mss_bull_idx == df['last_event_idx'],
-                mss_bear_idx == df['last_event_idx'],
-            ],
-            ['bos_bull', 'bos_bear', 'mss_bull', 'mss_bear'],
-            default=None
+
+        # =============================================================
+        # FSM PAMIĘĆ (STATE DURATION)
+        # =============================================================
+
+        # 3️⃣ Liczba barów w aktualnym micro_bias
+        df['micro_bias_block'] = (
+            df['micro_bias']
+            .ne(df['micro_bias'].shift())
+            .cumsum()
         )
 
-        # --- SYTUACJE RYNKOWE ---
-        cond_long_aggr = (df['structure_context'] == 'bos_bear') & (df['low'] < bos_bear)
-        cond_short_aggr = (df['structure_context'] == 'bos_bull') & (df['high'] > bos_bull)
-
-        cond_long_trend = (df['structure_context'] == 'bos_bull') & (df['low'] < bos_bull)
-        cond_short_trend = (df['structure_context'] == 'bos_bear') & (df['high'] > bos_bear)
-
-        # analogicznie można dodać chochy:
-        cond_long_aggr_choch = (df['structure_context'] == 'mss_bear') & (df['low'] < mss_bear)
-        cond_short_aggr_choch = (df['structure_context'] == 'mss_bull') & (df['high'] > mss_bull)
-
-        cond_long_trend_choch = (df['structure_context'] == 'mss_bull') & (df['low'] < mss_bull)
-        cond_short_trend_choch = (df['structure_context'] == 'mss_bear') & (df['high'] > mss_bear)
-
-        # --- KONTEXT I SYGNAŁ ---
-        df['price_action_context'] = np.select(
-            [
-                cond_long_aggr,
-                cond_long_aggr_choch,
-                cond_short_aggr,
-                cond_short_aggr_choch,
-                cond_long_trend,
-                cond_long_trend_choch,
-                cond_short_trend,
-                cond_short_trend_choch,
-            ],
-            [
-                'long_aggressive_bos',
-                'long_aggressive_choch',
-                'short_aggressive_bos',
-                'short_aggressive_choch',
-                'long_trend_bos',
-                'long_trend_choch',
-                'short_trend_bos',
-                'short_trend_choch',
-            ],
-            default=None
+        df['bars_in_micro_bias'] = (
+                df.groupby(df['micro_bias_block'])
+                .cumcount() + 1
         )
 
-        df['price_action_signal'] = np.select(
-            [
-                df['price_action_context'].fillna('').str.startswith('long'),
-                df['price_action_context'].fillna('').str.startswith('short')
-            ],
-            ['long', 'short'],
-            default=None
+        # 4️⃣ Bary od ostatniego momentum_favorable
+        df['bars_since_momentum'] = (
+            df['micro_bias'].eq('momentum_favorable')
+            .astype(int)
+            .groupby(df['micro_bias'].ne('momentum_favorable').cumsum())
+            .cumcount()
         )
 
-        self.df = df
+        df['bars_since_countertrend'] = (
+            df['micro_bias']
+            .eq('countertrend_favorable')
+            .astype(int)
+            .groupby(df['micro_bias'].ne('countertrend_favorable').cumsum())
+            .cumcount()
+        )
+
+        # =============================================================
+        # KONTEKSTY WYSOKIEGO POZIOMU (BEZ SYGNAŁÓW)
+        # =============================================================
+
+        # 🚫 BLOK DLA MOMENTUM (late / chaos)
+        df['block_momentum'] = (
+                df['micro_bias'] == 'countertrend_favorable'
+        )
+
+        # ✅ POZWOLENIE NA CONTINUATION
+        df['allow_momentum'] = (
+                (df['micro_bias'] == 'momentum_favorable') &
+                (df['bars_in_micro_bias'] <= 3)
+        )
+
+        # ⚠️ RYZYKOWNY KONTR-TRADE (fade / sweep)
+        df['allow_countertrend'] = (
+                (df['micro_bias'] == 'countertrend_favorable') &
+                (df['bars_in_micro_bias'] <= 2)
+        )
+
+        df['block_countertrend'] = (
+            (df['micro_bias'] != 'countertrend_favorable') |
+            (df['bars_in_micro_bias'] > 2) |
+            (df['bars_since_flip'] < 4)
+        )
+
+        # =============================================================
+        # (OPCJONALNE) PREMIUM CONTEXT
+        # =============================================================
+
+        df['premium_context'] = (
+                (df['micro_bias'] == 'momentum_favorable') &
+                (df['bars_in_micro_bias'] <= 2)
+        )
         return df
 
-    def _store_pivot_history(self, df, k, pivot_range, max_pivots=5):
-        """
-        Zapisuje ostatnie max_pivots wartości danego typu pivotu (np. HH, LL).
-        """
-        pivot_vals = df.loc[df[f'pivot_{pivot_range}'] == {'HH': 3, 'LL': 4, 'LH': 5, 'HL': 6}[k], 'pivotprice']
-        pivot_idx = df.loc[df[f'pivot_{pivot_range}'] == {'HH': 3, 'LL': 4, 'LH': 5, 'HL': 6}[k], 'idx']
+    def calculate_structural_volatility(self, df):
 
-        history = pd.DataFrame({
-            f'{k}_{pivot_range}_val': pivot_vals,
-            f'{k}_{pivot_range}_idx': pivot_idx
-        }).dropna()
-
-        # Zwracamy ostatnie N pivotów
-        return history.tail(max_pivots).reset_index(drop=True)
-
-    def _filter_pivots_by_atr(self, df, pivot_col, atr_col='atr', atr_factor=1.0):
-        """
-        Odrzuca pivoty, których zmiana względem poprzedniego pivotu jest mniejsza niż atr_factor * ATR.
-        """
-        pivots = df.loc[df[pivot_col] != 0, ['idx', 'pivotprice', atr_col]].copy()
-        pivots['delta'] = pivots['pivotprice'].diff().abs()
-        pivots['valid'] = pivots['delta'] > pivots[atr_col] * atr_factor
-        valid_idx = pivots.loc[pivots['valid'], 'idx']
-        return df[df['idx'].isin(valid_idx)]
-
-    def validate_fake_bos_choch(self, atr_mult: float = 2.0):
-        """
-        Wykrywa fejkowe BOS/CHOCH — tzn. wybicia, które nie przekroczyły poziomu
-        o co najmniej atr_mult * ATR. W takim przypadku generuje sygnał reversal.
-        """
-        df = self.df.copy()
-        r = self.pivot_range
-
-        # Poziomy i ATR
-        atr = df['atr']
-        bos_bull = df.get(f'bos_bull_{r}')
-        bos_bear = df.get(f'bos_bear_{r}')
-        mss_bull = df.get(f'mss_bull_{r}')
-        mss_bear = df.get(f'mss_bear_{r}')
-
-        # --- FAKE BOS / CHOCH ---
-        fake_bos_bull = (bos_bull.notna()) & ((df['high'] - bos_bull) < atr * atr_mult)
-        fake_bos_bear = (bos_bear.notna()) & ((bos_bear - df['low']) < atr * atr_mult)
-        fake_mss_bull = (mss_bull.notna()) & ((df['high'] - mss_bull) < atr * atr_mult)
-        fake_mss_bear = (mss_bear.notna()) & ((mss_bear - df['low']) < atr * atr_mult)
-
-        # --- FAKE BREAK SIGNAL ---
-        df['pa_fake_break_signal'] = np.select(
-            [
-                fake_bos_bull | fake_mss_bull,
-                fake_bos_bear | fake_mss_bear
-            ],
-            ['short', 'long'],
-            default=None
+        mask = (
+                df["pa_event_type"].isin(["mss", "bos"]) &
+                df["pa_event_dir"].isin(["bull", "bear"])
         )
 
-        # --- DOKŁADNY KONTEKST ---
-        df['pa_fake_break_context'] = np.select(
-            [
-                fake_bos_bull,  # fałszywe wybicie BOS w górę
-                fake_bos_bear,  # fałszywe wybicie BOS w dół
-                fake_mss_bull,  # fałszywe wybicie MSS w górę
-                fake_mss_bear  # fałszywe wybicie MSS w dół
-            ],
-            [
-                'fake_bos_bullish_break',
-                'fake_bos_bearish_break',
-                'fake_mss_bullish_break',
-                'fake_mss_bearish_break'
-            ],
-            default=None
-        )
+        df["struct_target_dist"] = np.nan
+        df["struct_target_dist_atr"] = np.nan
 
-        self.df = df
-        return df
+        bull = mask & (df["pa_event_dir"] == "bull")
+        bear = mask & (df["pa_event_dir"] == "bear")
 
+        # ===== BULL (LONG context) =====
+        bull_ll = df['close'] - df['LL']
+        bear_HH = df['HH'] - df['close']
 
-    def update_active_levels(self, atr_mult: float = 2.0):
-        """
-        Dodaje poziomy BOS/CHOCH, które zostały potwierdzone wybiciem > atr_mult * ATR.
-        """
-        df = self.df.copy()
-        r = self.pivot_range
-        atr = df['atr']
+        MAX_STRUCT_AGE = 200  # do testów
 
-        bos_bull = df.get(f'bos_bull_{r}')
-        bos_bear = df.get(f'bos_bear_{r}')
-        mss_bull = df.get(f'mss_bull_{r}')
-        mss_bear = df.get(f'mss_bear_{r}')
+        df["struct_age"] = np.nan
+        df.loc[bull, "struct_age"] = df["idx"] - df["LL_idx"]
+        df.loc[bear, "struct_age"] = df["idx"] - df["HH_idx"]
 
-        # Potwierdzone poziomy (>= 2 ATR)
-        bull_levels = (
-            ((bos_bull.notna()) & ((df['high'] - bos_bull) >= atr * atr_mult)) |
-            ((mss_bull.notna()) & ((df['high'] - mss_bull) >= atr * atr_mult))
-        )
+        valid_struct = df["struct_age"] <= MAX_STRUCT_AGE
 
-        bear_levels = (
-            ((bos_bear.notna()) & ((bos_bear - df['low']) >= atr * atr_mult)) |
-            ((mss_bear.notna()) & ((mss_bear - df['low']) >= atr * atr_mult))
-        )
+        df.loc[bull & valid_struct, "struct_target_dist"] = bull_ll
+        df.loc[bear & valid_struct, "struct_target_dist"] = bear_HH
 
-        df['active_support'] = np.where(bull_levels, df[['bos_bull_'+str(r), 'mss_bull_'+str(r)]].bfill(axis=1).iloc[:, 0], np.nan)
-        df['active_resistance'] = np.where(bear_levels, df[['bos_bear_'+str(r), 'mss_bear_'+str(r)]].bfill(axis=1).iloc[:, 0], np.nan)
+        # ===== BEAR (SHORT context) =====
 
-        df['active_support'] = pd.Series(df['active_support']).ffill()
-        df['active_resistance'] = pd.Series(df['active_resistance']).ffill()
+        df["struct_target_dist_atr"] = df["struct_target_dist"] / df["atr"]
 
-        self.df = df
-        return df
-
-    def clean_active_levels(self, atr_mult: float = 2.0):
-        """
-        Usuwa poziomy z active_support / active_resistance,
-        jeśli zostały przebite o więcej niż atr_mult * ATR.
-        """
-        df = self.df.copy()
-        atr = df['atr']
-
-        # support przebity w dół
-        remove_support = (df['active_support'].notna()) & ((df['active_support'] - df['low']) > atr * atr_mult)
-        # resistance przebity w górę
-        remove_resistance = (df['active_resistance'].notna()) & ((df['high'] - df['active_resistance']) > atr * atr_mult)
-
-        df.loc[remove_support, 'active_support'] = np.nan
-        df.loc[remove_resistance, 'active_resistance'] = np.nan
-
-        df['active_support'] = pd.Series(df['active_support']).ffill()
-        df['active_resistance'] = pd.Series(df['active_resistance']).ffill()
-
-        self.df = df
-        return df
-
-
-    def detect_zone_contacts(self, atr_mult: float = 2.0):
-        """
-        Sprawdza, czy cena znajduje się w strefie active_support / active_resistance
-        (± atr_mult * ATR). Rozróżnia kontakt wick (high/low) oraz body (open/close).
-        """
-        df = self.df.copy()
-        atr = df['atr']
-
-        # --- STREFY ---
-        support_low = df['active_support'] - atr * atr_mult
-        support_high = df['active_support'] + atr * atr_mult
-        resistance_low = df['active_resistance'] - atr * atr_mult
-        resistance_high = df['active_resistance'] + atr * atr_mult
-
-        # --- KONTAKT WICK ---
-        support = (
-            df['low'].between(support_low, support_high) |
-            df[['open', 'close']].min(axis=1).between(support_low, support_high)
-        )
-
-        resistance = (
-            df['high'].between(resistance_low, resistance_high) |
-            df[['open', 'close']].max(axis=1).between(resistance_low, resistance_high)
-        )
-
-        # --- SYGNAŁ SR ---
-        df['sr_signal'] = np.select(
-            [support, resistance],
-            ['long', 'short'],
-            default=None
-        )
-
-        # --- KONTEKST SR ---
-        df['sr_context'] = np.select(
-            [
-                support,
-                resistance,
-            ],
-            [
-                'support',
-                'resistance',
-            ],
-            default=None
-        )
-
-        self.df = df
         return df
 
     # =============================================================
     # 5️⃣ PIPELINE – całość
     # =============================================================
-    def run_full_detection(self):
-        self.detect_peaks()
-        self.detect_fibo()
-        self.detect_price_action()
-        self.generate_price_action_signals()
-        self.validate_fake_bos_choch()
-        self.update_active_levels()
-        self.clean_active_levels()
-        self.detect_zone_contacts()
-        return self.df
+    def apply(self, df: pd.DataFrame):
+        self.detect_peaks(df)
+        self.detect_eqh_eql_from_pivots(df)
+        self.detect_fibo(df)
+        self.detect_price_action(df)
+        self.track_bos_follow_through(df)
+        self.detect_trend_regime(df)
+        self.generate_price_action_context(df)
+        self.enrich_pa_context(df)
+        self.detect_microstructure_regime(df)
+        self.calculate_structural_volatility(df)
+
+        return df

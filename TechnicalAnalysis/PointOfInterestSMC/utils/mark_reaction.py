@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+
+from TechnicalAnalysis.Indicators import indicators as qtpylib
+
 import time
 from datetime import datetime
 import config
@@ -13,6 +16,7 @@ def mark_zone_reactions(df: pd.DataFrame, all_zones: pd.DataFrame, time_col: str
 
     n_bars = len(df)
     n_zones = len(all_zones) # --- dynamiczne kolumny ---
+
 
     for direction in ['bullish', 'bearish']:
         for zone_type in ['fvg', 'ob', 'breaker', 'ifvg']:
@@ -66,8 +70,8 @@ def mark_zone_reactions(df: pd.DataFrame, all_zones: pd.DataFrame, time_col: str
     ha_low = df['ha_low'].values
     cisd_bull_line = df['cisd_bull_line'].values
     cisd_bear_line = df['cisd_bear_line'].values
-    min_5 = df['min_5'].values
-    max_5 = df['max_5'].values
+    min_5 = df['low_5'].values
+    max_5 = df['high_5'].values
     atr = df['atr'].values
 
 
