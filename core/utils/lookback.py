@@ -2,6 +2,18 @@ import re
 import pandas as pd
 from datetime import timedelta
 
+LOOKBACK_CONFIG = {
+    "M1":  "24h",
+    "M5":  "7d",
+    "M15": "14d",   # sensowny default
+    "M30": "30d",
+    "H1":  "60d",
+    "H4":  "180d",
+    "D1":  "365d",
+    "W1":  "3y",
+}
+
+
 _LOOKBACK_RE = re.compile(r"^(\d+)([hdwmy])$")
 
 _UNIT_TO_DELTA = {

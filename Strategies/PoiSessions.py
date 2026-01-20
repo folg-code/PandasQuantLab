@@ -20,7 +20,7 @@ def log_t(start, label):
     print(f"{label:<35} {(perf_counter() - start):.3f}s")
 
 
-class PoiSessions(BaseStrategy):
+class Poisessions(BaseStrategy):
 
     def __init__(self, df, symbol, startup_candle_count, provider):
         super().__init__(
@@ -40,8 +40,8 @@ class PoiSessions(BaseStrategy):
         df['idx'] = df.index
         df['atr'] = ta.ATR(df, 14)
 
-        heikinashi = qtpylib.heikinashi(df)
-        df[['ha_open', 'ha_close', 'ha_high', 'ha_low']] = heikinashi[['open', 'close', 'high', 'low']]
+        #heikinashi = qtpylib.heikinashi(df)
+        #df[['ha_open', 'ha_close', 'ha_high', 'ha_low']] = heikinashi[['open', 'close', 'high', 'low']]
 
         # =====================================================
         # 7️⃣ CISD
@@ -171,7 +171,7 @@ class PoiSessions(BaseStrategy):
         # 3️⃣ PRICE ACTION (M5)
         # =====================================================
         t = perf_counter()
-        IntradayMarketStructure().apply(df)
+        #IntradayMarketStructure().apply(df)
         #log_t(t, "IntradayMarketStructure")
 
         df = df.copy()

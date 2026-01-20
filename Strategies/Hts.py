@@ -44,14 +44,14 @@ class Hts(BaseStrategy):
         df['rma_144_high'] = qtpylib.rma(df, df['high'], 144)
 
 
-        print("df_M30",df)
+        print("df M30", list(df.columns))
 
         return df
 
     def populate_indicators(self) -> None:
         df = self.df
 
-        print("df main", df)
+        print("df main", list(df.columns))
 
         df['atr'] = ta.ATR(df, 14)
 
@@ -61,8 +61,8 @@ class Hts(BaseStrategy):
         df['rma_144_low'] = qtpylib.rma(df, df['low'], 144)
         df['rma_144_high'] = qtpylib.rma(self.df, df['high'], 144)
 
-        df['sl_long'] = df['close'] - (10 * df['atr'])#df['rma_33_low']
-        df['sl_short'] = df['close'] + (10* df['atr']) #df['rma_33_high']
+        df['sl_long'] =df['rma_33_low']  #df['close'] - (1 * df['atr'])
+        df['sl_short'] = df['rma_33_high'] #df['close'] + (1* df['atr'])
 
     def populate_entry_trend(self) -> None:
         df = self.df
@@ -79,21 +79,21 @@ class Hts(BaseStrategy):
 
         # --- 🔹 5. Maski logiczne ---
         long_mask = (
-                (df['close'] > df['open']) #&
-                #(df['rma_33_low'] > df['rma_144_high']) &  # HTF trend
-                #(df['low'] <= df['rma_33_high']) &  # pullback into ribbon
-                #(df['close'] > df['rma_33_high']) &  # rejection
-                #(df['rma_33_low'] > df['rma_33_low'].shift(1))   # trend still rising
-                #& (df['close'] > df['rma_144_low_M30'])
+                (df['close'] > df['open']) &
+                (df['rma_33_low'] > df['rma_144_high']) &  # HTF trend
+                (df['low'] <= df['rma_33_high']) &  # pullback into ribbon
+                (df['close'] > df['rma_33_high']) &  # rejection
+                (df['rma_33_low'] > df['rma_33_low'].shift(1))   # trend still rising
+                & (df['close'] > df['rma_144_low_M30'])
         )
 
         short_mask = (
-                (df['close'] < df['open'])# &
-                #(df['rma_33_high'] < df['rma_144_low']) &  # trend down
-                #(df['high'] >= df['rma_33_low']) &  # pullback
-                #(df['close'] < df['rma_33_low']) &  # rejection
-                #(df['rma_33_high'] < df['rma_33_high'].shift(1))   # falling impulse
-                #& (df['close'] < df['rma_144_high_M30'])
+                (df['close'] < df['open']) &
+                (df['rma_33_high'] < df['rma_144_low']) &  # trend down
+                (df['high'] >= df['rma_33_low']) &  # pullback
+                (df['close'] < df['rma_33_low']) &  # rejection
+                (df['rma_33_high'] < df['rma_33_high'].shift(1))   # falling impulse
+                & (df['close'] < df['rma_144_high_M30'])
         )
 
         # --- 🔹 6. Generowanie sygnałów + scoring ---
@@ -138,6 +138,8 @@ class Hts(BaseStrategy):
 
         print("ŻYJĘ")"""
 
+        print(df.loc[df["signal_entry"].notna()])
+
 
 
     def populate_exit_trend(self):
@@ -173,6 +175,11 @@ class Hts(BaseStrategy):
             ("rma_33_high", self.df["rma_33_high"], "blue", "dot"),
             ("rma_144_low", self.df["rma_144_low"], "red", "dot"),
             ("rma_144_high", self.df["rma_144_high"], "red", "dot"),
+
+            ("rma_33_low_M30", self.df["rma_33_low_M30"], "blue", "dot"),
+            ("rma_33_high_M30", self.df["rma_33_high_M30"], "blue", "dot"),
+            ("rma_144_low_M30", self.df["rma_144_low_M30"], "red", "dot"),
+            ("rma_144_high_M30", self.df["rma_144_high_M30"], "red", "dot"),
 
 
 

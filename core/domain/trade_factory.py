@@ -28,8 +28,8 @@ class TradeFactory:
         Backtester must not touch Trade internals.
         """
 
-        print("LEVEL TAGS:", level_tags)
-        print("EXIT REASON:", exit_result.reason)
+        #print("LEVEL TAGS:", level_tags)
+        #print("EXIT REASON:", exit_result.reason)
 
         trade = Trade(
             symbol=symbol,

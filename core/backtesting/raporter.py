@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.table import Table
 from datetime import timedelta
 
-from config import BACKTEST_MODE
+from config.backtest import BACKTEST_MODE
 
 
 class BacktestReporter:

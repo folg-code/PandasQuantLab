@@ -1,17 +1,16 @@
 # scripts/run_live_pipeline.py
 
 from datetime import datetime
-import time
 
 import MetaTrader5 as mt5
 import pandas as pd
 
-from core.data_backends.base import lookback_to_bars, LiveMT5Provider
-from core.data_backends.mt5_provider import MT5Provider
-from core.live_trading_refactoring import strategy_adapter
-from core.live_trading_refactoring.engine import LiveEngine
-from core.live_trading_refactoring.strategy_adapter import LiveStrategyAdapter
-
+from config.live import STARTUP_CANDLE_COUNT
+from core.data_provider.clients.mt5_provider import lookback_to_bars, LiveMT5Provider
+from core.live_trading.engine import LiveEngine
+from core.live_trading.strategy_adapter import LiveStrategyAdapter
+from core.utils.lookback import LOOKBACK_CONFIG
+from core.utils.timeframe import MT5_TIMEFRAME_MAP
 
 # === CONFIG ==================================================
 
@@ -39,15 +38,12 @@ MIN_HTF_BARS = {
 
 # ============================================================
 
-from config import TIMEFRAME_MAP, LOOKBACK_CONFIG, STARTUP_CANDLES
+
 from core.strategy.strategy_loader import load_strategy, load_strategy_class
 
-from core.live_trading_refactoring.position_manager import PositionManager
-from core.live_trading_refactoring.mt5_adapter import MT5Adapter
-from core.live_trading_refactoring.trade_repo import TradeRepo
-
-from core.strategy.trade_plan import TradePlan
-
+from core.live_trading.position_manager import PositionManager
+from core.live_trading.mt5_adapter import MT5Adapter
+from core.live_trading.trade_repo import TradeRepo
 
 # ============================================================
 # MT5 INIT
@@ -77,7 +73,7 @@ def init_mt5():
 
 def fetch_market_state(symbol: str, timeframe: str, bars: int):
 
-    tf = TIMEFRAME_MAP[timeframe]
+    tf = MT5_TIMEFRAME_MAP[timeframe]
     rates = mt5.copy_rates_from_pos(symbol, tf, 0, bars)
 
     if rates is None:
@@ -142,7 +138,7 @@ def main():
         name=STRATEGY_NAME,
         df=df,
         symbol=SYMBOL,
-        startup_candle_count=STARTUP_CANDLES,  # LTF warmup
+        startup_candle_count=STARTUP_CANDLE_COUNT,  # LTF warmup
         provider=provider,
     )
 
@@ -155,7 +151,7 @@ def main():
     def market_data_provider():
         rates = mt5.copy_rates_from_pos(
             SYMBOL,
-            TIMEFRAME_MAP[TIMEFRAME],
+            MT5_TIMEFRAME_MAP[TIMEFRAME],
             0,
             2,
         )

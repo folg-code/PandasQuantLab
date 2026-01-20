@@ -1,53 +1,11 @@
-from abc import ABC, abstractmethod
-
-import mt5
 import pandas as pd
+import MetaTrader5 as mt5
 
-from config import TIMEFRAME_MAP
+import config
+from core.data_provider.base import MarketDataProvider
+from core.utils.lookback import LOOKBACK_CONFIG
+from core.utils.timeframe import MT5_TIMEFRAME_MAP
 
-
-class MarketDataProvider(ABC):
-
-    @abstractmethod
-    def get_ohlcv(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        bars: int,
-    ) -> pd.DataFrame:
-        pass
-
-
-class BacktestProvider(MarketDataProvider):
-
-    def __init__(self, data_source):
-        """
-        data_source: np. dict[(symbol, timeframe)] -> DataFrame
-        """
-        self.data_source = data_source
-
-    def get_ohlcv(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        bars: int,
-    ) -> pd.DataFrame:
-        df = self.data_source[(symbol, timeframe)]
-        return df.iloc[-bars:].copy()
-
-    def get_ohlcv_range(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        start: pd.Timestamp,
-        end: pd.Timestamp,
-    ) -> pd.DataFrame:
-        df = self.data_source[(symbol, timeframe)]
-        mask = (df["time"] >= start) & (df["time"] <= end)
-        return df.loc[mask].copy()
 
 class LiveMT5Provider(MarketDataProvider):
 
@@ -61,7 +19,7 @@ class LiveMT5Provider(MarketDataProvider):
         timeframe: str,
         bars: int,
     ) -> pd.DataFrame:
-        tf = TIMEFRAME_MAP[timeframe]
+        tf = MT5_TIMEFRAME_MAP[timeframe]
         rates = mt5.copy_rates_from_pos(symbol, tf, 0, bars)
         if rates is None:
             raise RuntimeError(
@@ -77,20 +35,22 @@ class LiveMT5Provider(MarketDataProvider):
         *,
         symbol: str,
         timeframe: str,
+        startup_candle_count: int,
     ) -> pd.DataFrame:
+        # 🔑 LIVE: lookback → bars
+        bars = lookback_to_bars(
+            timeframe=timeframe,
+            lookback=LOOKBACK_CONFIG[timeframe],
+        )
 
-        if timeframe not in self.bars_per_tf:
-            raise KeyError(
-                f"No HTF bars defined for timeframe {timeframe}"
-            )
-
-        bars = self.bars_per_tf[timeframe]
-
-        return self.get_ohlcv(
+        df = self.get_ohlcv(
             symbol=symbol,
             timeframe=timeframe,
             bars=bars,
         )
+
+        # 🔑 strategia dostaje dokładnie to, czego potrzebuje
+        return df.tail(startup_candle_count).copy()
 
 
 _TIMEFRAME_TO_SECONDS = {
@@ -133,3 +93,5 @@ def lookback_to_bars(timeframe: str, lookback: str) -> int:
 
     # 🔒 minimum bezpieczeństwa
     return max(int(bars), 10)
+
+

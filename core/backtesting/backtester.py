@@ -5,6 +5,7 @@ import config
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 
+from config.backtest import INITIAL_BALANCE, SLIPPAGE
 from core.backtesting.simulate_exit_numba import simulate_exit_numba
 from core.domain.risk import position_sizer_fast
 from core.domain.exit_processor import ExitProcessor
@@ -99,14 +100,18 @@ class Backtester:
                 }
 
 
+
                 entry_price = close_arr[entry_pos]
-                entry_price *= (1 + self.slippage) if direction == "long" else (1 - self.slippage)
+
+
+                slippage_abs = SLIPPAGE * point_size
+                entry_price += slippage_abs if direction == "long" else -slippage_abs
 
                 position_size = position_sizer_fast(
                     entry_price,
                     sl,
                     max_risk=0.005,
-                    account_size=config.INITIAL_BALANCE,
+                    account_size=INITIAL_BALANCE,
                     point_size=point_size,
                     pip_value=pip_value,
                 )
@@ -129,6 +134,7 @@ class Backtester:
                     low_arr,
                     close_arr,
                     time_arr,
+                    slippage_abs,
                 )
 
                 exit_result = ExitProcessor.process(

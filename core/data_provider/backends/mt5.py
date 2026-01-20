@@ -7,7 +7,7 @@ import MetaTrader5 as mt5
 
 from core.data_provider.backend import MarketDataBackend
 from core.data_provider.exceptions import DataNotAvailable
-from config import TIMEFRAME_MAP
+from core.utils.timeframe import MT5_TIMEFRAME_MAP
 
 
 class Mt5Backend(MarketDataBackend):
@@ -33,7 +33,7 @@ class Mt5Backend(MarketDataBackend):
         start: pd.Timestamp,
         end: pd.Timestamp,
     ) -> pd.DataFrame:
-        tf = TIMEFRAME_MAP.get(timeframe)
+        tf = MT5_TIMEFRAME_MAP.get(timeframe)
         if tf is None:
             raise ValueError(f"Unsupported timeframe: {timeframe}")
 
