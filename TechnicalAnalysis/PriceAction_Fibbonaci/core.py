@@ -5,6 +5,8 @@ import pandas as pd
 import talib.abstract as ta
 from debugpy.launcher.debuggee import describe
 
+from TechnicalAnalysis.MarketStructure.pivots import PivotDetector
+
 
 class IntradayMarketStructure:
     def __init__(
@@ -19,125 +21,8 @@ class IntradayMarketStructure:
     # 1️⃣ DETEKCJA PIVOTÓW
     # =============================================================
     def detect_peaks(self, df):
-
-        pivot_range = self.pivot_range
-
-        df['rsi'] = ta.RSI(df, pivot_range)
-        df['atr'] = ta.ATR(df, pivot_range)
-        df['idx'] = np.arange(len(df))
-
-        ############################## DETECT PIVOTS ##############################
-        local_high_price = (
-                (df["high"].rolling(window=pivot_range).max().shift(pivot_range + 1) <= df["high"].shift(
-                    pivot_range)) &
-                (df["high"].rolling(window=pivot_range).max() <= df["high"].shift(pivot_range))
-        )
-        local_low_price = (
-                ((df["low"].rolling(window=pivot_range).min()).shift(pivot_range + 1) >= df["low"].shift(
-                    pivot_range)) &
-                (df["low"].rolling(window=pivot_range).min() >= df["low"].shift(pivot_range))
-        )
-
-        df.loc[local_high_price, 'pivotprice'] = df['high'].shift(pivot_range)
-        df.loc[local_low_price, 'pivotprice'] = df['low'].shift(pivot_range)
-
-        df.loc[local_high_price, 'pivot_body'] = (
-            df[['open', 'close']].max(axis=1).rolling(int(pivot_range)).max()).shift(int(pivot_range / 2))
-        df.loc[local_low_price, 'pivot_body'] = (
-            df[['open', 'close']].min(axis=1).rolling(int(pivot_range)).min()).shift(int(pivot_range / 2))
-
-        HH_condition = local_high_price & (
-                df.loc[local_high_price, 'pivotprice'] > df.loc[local_high_price, 'pivotprice'].shift(1))
-        LL_condition = local_low_price & (
-                df.loc[local_low_price, 'pivotprice'] < df.loc[local_low_price, 'pivotprice'].shift(1))
-        LH_condition = local_high_price & (
-                df.loc[local_high_price, 'pivotprice'] < df.loc[local_high_price, 'pivotprice'].shift(1))
-        HL_condition = local_low_price & (
-                df.loc[local_low_price, 'pivotprice'] > df.loc[local_low_price, 'pivotprice'].shift(1))
-
-        df.loc[local_high_price, f'pivot'] = 1
-        df.loc[local_low_price, f'pivot'] = 2
-        df.loc[HH_condition, f'pivot'] = 3
-        df.loc[LL_condition, f'pivot'] = 4
-        df.loc[LH_condition, f'pivot'] = 5
-        df.loc[HL_condition, f'pivot'] = 6
-
-        df.loc[df[f'pivot'] == 3, f'HH_idx'] = df['idx']
-        df.loc[df[f'pivot'] == 4, f'LL_idx'] = df['idx']
-        df.loc[df[f'pivot'] == 5, f'LH_idx'] = df['idx']
-        df.loc[df[f'pivot'] == 6, f'HL_idx'] = df['idx']
-
-        df[f'HH_idx'] = df[f'HH_idx'].ffill()
-        df[f'LL_idx'] = df[f'LL_idx'].ffill()
-        df[f'LH_idx'] = df[f'LH_idx'].ffill()
-        df[f'HL_idx'] = df[f'HL_idx'].ffill()
-
-
-
-
-        ############################## MARK VALUES ##############################
-        df.loc[df[f'pivot'] == 3, f'HH'] = df['pivotprice']
-        df.loc[df[f'pivot'] == 4, f'LL'] = df['pivotprice']
-        df.loc[df[f'pivot'] == 5, f'LH'] = df['pivotprice']
-        df.loc[df[f'pivot'] == 6, f'HL'] = df['pivotprice']
-
-        df[f'HH'] = df[f'HH'].ffill()
-        df[f'LL'] = df[f'LL'].ffill()
-        df[f'LH'] = df[f'LH'].ffill()
-        df[f'HL'] = df[f'HL'].ffill()
-
-        df[f'HH_shift'] = df.loc[df[f'pivot'] == 3, 'pivotprice'].shift(1)
-        df[f'LL_shift'] = df.loc[df[f'pivot'] == 4, 'pivotprice'].shift(1)
-        df[f'LH_shift'] = df.loc[df[f'pivot'] == 5, 'pivotprice'].shift(1)
-        df[f'HL_shift'] = df.loc[df[f'pivot'] == 6, 'pivotprice'].shift(1)
-
-        df[f'HH_shift'] = df[f'HH_shift'].ffill()
-        df[f'LL_shift'] = df[f'LL_shift'].ffill()
-        df[f'LH_shift'] = df[f'LH_shift'].ffill()
-        df[f'HL_shift'] = df[f'HL_shift'].ffill()
-
-        df[f'HH_idx_shift'] = df.loc[df[f'pivot'] == 3, 'idx'].shift(1)
-        df[f'LL_idx_shift'] = df.loc[df[f'pivot'] == 4, 'idx'].shift(1)
-        df[f'LH_idx_shift'] = df.loc[df[f'pivot'] == 5, 'idx'].shift(1)
-        df[f'HL_idx_shift'] = df.loc[df[f'pivot'] == 6, 'idx'].shift(1)
-
-        df[f'HH_idx_shift'] = df[f'HH_idx_shift'].ffill()
-        df[f'LL_idx_shift'] = df[f'LL_idx_shift'].ffill()
-        df[f'LH_idx_shift'] = df[f'LH_idx_shift'].ffill()
-        df[f'HL_idx_shift'] = df[f'HL_idx_shift'].ffill()
-
-
-        """
-
-        buy_liq_cond = (
-                ((df[f'pivot'] == 6)
-                 & (df[f'HL_spread'] < 20)
-                 ) |
-                ((df[f'pivot'] == 4)
-                 & (df[f'LL_spread'] < 20)
-                 )
-        )
-
-        buy_liq = df.loc[buy_liq_cond, ['pivotprice', 'pivot_body', 'idx', 'time']]
-
-        # Warunek dla bearish OB (pivot 3 = HH, pivot 5 = LH)
-        sell_liq_cond = (
-                ((df[f'pivot'] == 3)
-                 & (df[f'HH_spread'] < 20)
-                 ) |
-                ((df[f'pivot'] == 5)
-                 & (df[f'LH_spread'] < 20)
-                 )
-        )
-
-        sell_liq = df.loc[sell_liq_cond, ['pivotprice', 'pivot_body', 'idx', 'time']]
-
-        buy_liq_renamed = buy_liq.rename(columns={'pivotprice': 'low_boundary', 'pivot_body': 'high_boundary'})
-
-        bearish_ob_renamed = sell_liq.rename(columns={'pivotprice': 'high_boundary', 'pivot_body': 'low_boundary'})
-
-        """
-        return df
+        detector = PivotDetector(self.pivot_range)
+        return detector.apply(df)
 
     def detect_eqh_eql_from_pivots(
             self,
@@ -145,23 +30,7 @@ class IntradayMarketStructure:
             eq_atr_mult: float = 0.2,
             prefix: str = ""
     ) -> pd.DataFrame:
-        """
-        Detect Equal High (EQH) and Equal Low (EQL) levels based purely on
-        pivot structure (HH, LH, LL, HL) using vectorized pandas logic only.
 
-        Assumptions:
-        - Pivot columns already exist and are forward-filled:
-            HH, LH, LL, HL
-            HH_idx, LH_idx, LL_idx, HL_idx
-        - atr exists
-        - No loops, no apply, no candle logic
-
-        Output columns:
-        - EQH (bool)
-        - EQL (bool)
-        - EQH_level (float)
-        - EQL_level (float)
-        """
 
 
         # =========================
@@ -285,157 +154,6 @@ class IntradayMarketStructure:
         df,
         atr_mult: float = 1.0,
     ):
-        """
-        Finite State Machine (FSM) – Structural Market Regime Detector
-
-        CEL FUNKCJI
-        -----------
-        Wykrywa i utrzymuje aktualny reżim rynku (bull / bear / range)
-        w sposób deterministyczny, wydajny i odporny na szum,
-        bazując WYŁĄCZNIE na strukturze (BOS / MSS) oraz potwierdzonym momentum.
-
-        Funkcja stanowi FUNDAMENT warstwy "State Layer".
-        NIE generuje sygnałów i NIE podejmuje decyzji tradingowych.
-
-        ------------------------------------------------------------------
-        INPUT
-        ------------------------------------------------------------------
-        df:
-            DataFrame zawierający zdarzenia strukturalne HTF:
-            - bos_bull_event : bool
-            - bos_bear_event : bool
-            - mss_bull_event : bool
-            - mss_bear_event : bool
-            - follow_through_atr : float
-              (miara displacementu / momentum po BOS)
-
-        atr_mult:
-            Minimalny próg follow-through wymagany, aby BOS
-            został uznany za strukturalnie ważny.
-            Chroni FSM przed fake breakoutami.
-
-        ------------------------------------------------------------------
-        LOGIKA FSM (UPROSZCZONA)
-        ------------------------------------------------------------------
-        range:
-            BOS bull + follow-through  → bull
-            BOS bear + follow-through  → bear
-
-        bull:
-            BOS bear + follow-through  → bear   (FLIP)
-            MSS bear                  → range  (CANCEL)
-
-        bear:
-            BOS bull + follow-through  → bull   (FLIP)
-            MSS bull                  → range  (CANCEL)
-
-        FSM NIE:
-        - zgaduje przyszłości
-        - nie używa rolling / ffill
-        - nie reaguje na pojedyncze bary momentum
-
-        ------------------------------------------------------------------
-        OUTPUT FEATURES (KLUCZOWE)
-        ------------------------------------------------------------------
-
-        market_regime : {'range', 'bull', 'bear'}
-            Aktualny stan strukturalny rynku.
-            Jest JEDYNYM źródłem prawdy o kierunku struktury.
-            NIE jest sygnałem.
-
-        trend_active : bool
-            True gdy market_regime ∈ {'bull', 'bear'}.
-            Używane WYŁĄCZNIE jako filtr środowiska,
-            nigdy jako trigger wejścia.
-
-        regime_duration : int
-            Liczba barów spędzonych w AKTUALNYM reżimie.
-            Resetowana przy każdym flipie lub cancelu.
-
-            Zastosowanie:
-            - odróżnienie fake trendów od dojrzałych
-            - filtrowanie zbyt krótkich struktur
-
-        regime_flip : bool
-            True TYLKO na barze, w którym nastąpił flip
-            (bull ↔ bear).
-
-            Interpretacja:
-            - bar zmiany dominującej struktury
-            - najwyższe ryzyko chaosu
-            - NIE MIEJSCE na wejścia trendowe
-
-        regime_cancel : bool
-            True na barze, gdzie trend został anulowany
-            przez MSS (powrót do range).
-
-            Interpretacja:
-            - utrata struktury
-            - potencjalna akumulacja / dystrybucja
-            - brak biasu kierunkowego
-
-        regime_age_norm : float
-            Znormalizowany wiek reżimu:
-                regime_duration / mean(duration | regime)
-
-            Co oznacza:
-            - < 0.5 → bardzo świeży (wysokie ryzyko fake)
-            - 0.5–1.2 → zdrowy
-            - > 1.5 → dojrzały / potencjalnie zmęczony
-
-            Użycie:
-            - filtr jakości trendu
-            - adaptacja TP / SL
-            - ważenie kontekstu
-
-            NIE JEST:
-            - predyktorem flipu
-            - sygnałem wejścia
-
-        bars_since_flip : int
-            Liczba barów od ostatniego FLIPU reżimu.
-
-            Co mierzy:
-            - stabilność struktury po zmianie dominacji
-
-            Interpretacja:
-            - 0–3  → chaos po flipie
-            - 5–12 → struktura stabilna (optymalna dla entry)
-            - >20  → dojrzały trend, mniejszy potencjał RR
-
-            Użycie:
-            - gating HTF (np. bars_since_flip >= 8)
-            - modulacja ryzyka
-            - confidence score kontekstu
-
-        ------------------------------------------------------------------
-        JAK UŻYWAĆ TEJ FUNKCJI
-        ------------------------------------------------------------------
-        - zawsze PRZED generacją sygnałów
-        - jako warstwa nadrzędna (HTF bias)
-        - w połączeniu z:
-            * price action context
-            * entry logic
-            * risk engine
-
-        ------------------------------------------------------------------
-        JAK NIE UŻYWAĆ
-        ------------------------------------------------------------------
-        - NIE traktować żadnego outputu jako sygnału
-        - NIE próbować przewidywać flipów
-        - NIE łączyć FSM z rolling ffill logic
-
-        ------------------------------------------------------------------
-        FILOZOFIA
-        ------------------------------------------------------------------
-        Ta funkcja odpowiada wyłącznie na pytanie:
-
-            "JAKA jest aktualna struktura rynku
-             i jak stabilna ona jest?"
-
-        Decyzje tradingowe należą do kolejnych warstw.
-        """
-
         n = len(df)
 
         bos_bull = df['bos_bull_event'].values
@@ -585,10 +303,6 @@ class IntradayMarketStructure:
             df[f'{name}_level'] = df[f'{name}_level'].ffill()
             df[f'{name}_event_idx'] = df[f'{name}_event_idx'].ffill()
 
-        print(df[[
-            'bos_bull_event_idx', 'bos_bear_event_idx',
-            'mss_bull_event_idx', 'mss_bear_event_idx', 'HL'
-        ]].tail(200))
 
 
 
@@ -667,7 +381,7 @@ class IntradayMarketStructure:
         # TIME SINCE PA EVENT
         df['bars_since_pa'] = df['idx']- df['pa_event_idx']
 
-        print(df[['idx', 'pa_event_idx', 'bars_since_pa']].tail(20))
+
 
         # DISTANCE FROM PA LEVEL
         df['pa_dist'] = abs(df['close'] - df['pa_level'])
@@ -765,182 +479,6 @@ class IntradayMarketStructure:
             compression_thr: float = 0.6,
             expansion_thr: float = 1.4,
     ):
-        """
-        ====================================================================
-        MICROSTRUCTURE FSM & BIAS – STRATEGY USAGE DOCSTRING
-        ====================================================================
-
-        Ten moduł NIE generuje sygnałów tradingowych.
-        Dostarcza WYŁĄCZNIE kontekst decyzyjny oparty o mikrostrukturę rynku.
-
-        Każda kolumna odpowiada na inne pytanie:
-            - „JAK rynek się porusza?”
-            - „GDZIE jest asymetria?”
-            - „CZY wolno grać momentum / countertrend?”
-
-        --------------------------------------------------------------------
-        PODSTAWOWA DETEKCJA STANU
-        --------------------------------------------------------------------
-
-        microstructure_regime : {'normal', 'compression', 'expansion', 'exhaustion'}
-
-        Znaczenie:
-            normal
-                - baseline execution
-                - brak asymetrii
-                - najlepszy stan dla standardowych setupów
-
-            compression
-                - HTF / LTF coil (akumulacja, zwijanie zakresu)
-                - NIE jest martwym rynkiem
-                - brak natychmiastowego edge
-                - edge pojawia się w przejściu → expansion
-
-            expansion
-                - impuls / displacement
-                - najwyższy follow-through
-                - jedyny stan z edge dla continuation
-
-            exhaustion
-                - wysoka zmienność bez progresu
-                - statystyczny zwrot przeciwko impulsowi
-                - idealny kontekst dla fade / sweep / risky countertrend
-
-        UWAGA:
-            Sam stan NIE jest sygnałem.
-            Edge siedzi w SEKWENCJI stanów.
-
-        --------------------------------------------------------------------
-        SEKWENCJA STANÓW
-        --------------------------------------------------------------------
-
-        micro_transition : '<prev>_to_<current>'
-
-        Przykłady:
-            compression_to_expansion
-            expansion_to_exhaustion
-            normal_to_expansion
-
-        Znaczenie:
-            Sekwencja stanów jest ważniejsza niż aktualny stan.
-            FSM używa transition, nie samego regime.
-
-        --------------------------------------------------------------------
-        MIKROSTRUKTURALNY BIAS (ASYMETRIA)
-        --------------------------------------------------------------------
-
-        micro_bias : {'momentum_favorable', 'countertrend_favorable', 'balanced'}
-
-        Znaczenie:
-            momentum_favorable
-                - asymetria w kierunku impulsu
-                - continuation ma edge
-                - przykłady:
-                    * compression → expansion
-                    * normal → expansion
-
-            countertrend_favorable
-                - asymetria PRZECIWKO impulsowi
-                - idealne środowisko na:
-                    * fade
-                    * failed BOS
-                    * liquidity sweep
-                - typowo:
-                    * expansion → exhaustion
-
-            balanced
-                - brak asymetrii
-                - rynek w równowadze
-                - tylko standardowe, konserwatywne setupy
-
-        --------------------------------------------------------------------
-        PAMIĘĆ FSM (CZAS MA ZNACZENIE)
-        --------------------------------------------------------------------
-
-        bars_in_micro_bias : int
-
-        Znaczenie:
-            Liczba barów od wejścia w aktualny micro_bias.
-
-        Interpretacja:
-            momentum_favorable:
-                1–3 bary → najlepsze RR
-                >3       → momentum wygasa
-
-            countertrend_favorable:
-                1–2 bary → jedyne sensowne okno na fade
-                >2       → edge znika
-
-        --------------------------------------------------------------------
-        BLOKADY I POZWOLENIA (NIE SYGNAŁY)
-        --------------------------------------------------------------------
-
-        allow_momentum : bool
-            True:
-                - wolno grać continuation
-                - tylko gdy micro_bias == momentum_favorable
-                - tylko krótko po transition
-
-        block_momentum : bool
-            True:
-                - zakaz grania momentum
-                - szczególnie po:
-                    * expansion → exhaustion
-                    * exhaustion → normal
-
-        allow_countertrend : bool
-            True:
-                - wolno próbować fade / reversal
-                - tylko w wąskim oknie exhaustion
-
-        block_countertrend : bool
-            True:
-                - zakaz countertrend
-                - brak asymetrii lub zbyt późno
-                - świeży flip struktury (chaos)
-
-        --------------------------------------------------------------------
-        JAK UŻYWAĆ W STRATEGII
-        --------------------------------------------------------------------
-
-        1) Trend continuation (bez ryzyka):
-            - trend_active == True
-            - allow_momentum == True
-            - block_momentum == False
-            - bars_since_flip >= N
-
-        2) Ryzykowny countertrend (świadomy):
-            - bos_bull_event / bos_bear_event
-            - allow_countertrend == True
-            - block_countertrend == False
-            - mniejszy risk (np. 0.3R)
-
-        3) Gdy NIC nie jest True:
-            - NIE handluj
-            - rynek nie daje edge
-
-        --------------------------------------------------------------------
-        CZEGO NIE ROBIĆ
-        --------------------------------------------------------------------
-
-        ❌ Nie traktować żadnej kolumny jako sygnału wejścia
-        ❌ Nie optymalizować progów pod TF osobno
-        ❌ Nie grać countertrend poza exhaustion
-        ❌ Nie ignorować czasu (bars_in_micro_bias)
-
-        --------------------------------------------------------------------
-        FILOZOFIA
-        --------------------------------------------------------------------
-
-        Ten moduł nie mówi:
-            „KUP / SPRZEDAJ”
-
-        On mówi:
-            „KTO ma przewagę i JAKĄ”
-
-        Decyzje tradingowe należą do kolejnych warstw strategii.
-        """
-
         # ===============================
         # 1️⃣ ZMIENNOŚĆ RELATYWNA
         # ===============================
