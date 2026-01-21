@@ -1,3 +1,5 @@
+#TechnicalAnalysis/PointOfInterestSMC/core.py
+
 import re
 
 import pandas as pd
