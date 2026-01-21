@@ -7,6 +7,7 @@ from debugpy.launcher.debuggee import describe
 
 from TechnicalAnalysis.MarketStructure.fibo import FiboCalculator
 from TechnicalAnalysis.MarketStructure.pivots import PivotDetector
+from TechnicalAnalysis.MarketStructure.price_action import PriceActionStateEngine
 from TechnicalAnalysis.MarketStructure.relations import PivotRelations
 
 
@@ -38,6 +39,9 @@ class IntradayMarketStructure:
     # =============================================================
     # 3️⃣ DETEKCJA PRICE ACTION
     # =============================================================
+
+    def detect_price_action(self, df):
+        return PriceActionStateEngine().apply(df)
 
 
 
@@ -127,76 +131,7 @@ class IntradayMarketStructure:
             .cumsum()
         )
 
-    def detect_price_action(self, df):
-        """
-        Price Action detection with explicit EVENT vs STATE separation.
 
-        Outputs per structure:
-        - *_event        : True only on event bar
-        - *_level        : price level created by event (ffilled)
-        - *_event_idx    : index of event bar (ffilled, state)
-        """
-
-        actions = [
-            # MSS
-            {
-                'name': 'mss_bull',
-                'cond': (df['close'] > df['LH']) & (df['close'].shift(1) <= df['LH']),
-                'level': df['LH'],
-            },
-            {
-                'name': 'mss_bear',
-                'cond': (df['close'] < df['HL']) & (df['close'].shift(1) >= df['HL']),
-                'level': df['HL'],
-            },
-
-            # BOS
-            {
-                'name': 'bos_bull',
-                'cond': (df['close'] > df['HH']) & (df['close'].shift(1) <= df['HH']),
-                'level': df['HH'],
-            },
-            {
-                'name': 'bos_bear',
-                'cond': (df['close'] < df['LL']) & (df['close'].shift(1) >= df['LL']),
-                'level': df['LL'],
-            },
-        ]
-
-        for act in actions:
-            name = act['name']
-
-            # ==========================
-            # EVENT (impulse)
-            # ==========================
-            df[f'{name}_event'] = act['cond']
-
-            # ==========================
-            # LEVEL CREATED BY EVENT
-            # ==========================
-            df[f'{name}_level'] = np.where(
-                act['cond'],
-                act['level'],
-                np.nan
-            )
-
-            # ==========================
-            # EVENT INDEX (STATEFUL)
-            # ==========================
-            df[f'{name}_event_idx'] = np.where(
-                act['cond'],
-                df.index,
-                np.nan
-            )
-
-            # ==========================
-            # FORWARD FILL STATE
-            # ==========================
-            df[f'{name}_level'] = df[f'{name}_level'].ffill()
-            df[f'{name}_event_idx'] = df[f'{name}_event_idx'].ffill()
-
-
-        return df
 
     def generate_price_action_context(self, df):
         """
