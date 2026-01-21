@@ -44,10 +44,11 @@ class IntradayMarketStructure:
     # LEGACY PIPELINE (1:1 jak było)
     # =============================================================
     def apply_legacy(self, df: pd.DataFrame):
-        self.detect_peaks(df)
-        self.detect_eqh_eql_from_pivots(df)
-        self.detect_fibo(df)
-        self.detect_price_action(df)
+        df = self.detect_peaks(df)
+        df = self.detect_eqh_eql_from_pivots(df)
+        df = self.detect_fibo(df)
+        df = self.detect_price_action(df)
+
         self.track_bos_follow_through(df)
         self.detect_trend_regime(df)
         self.generate_price_action_context(df)
@@ -78,7 +79,15 @@ class IntradayMarketStructure:
     # STARE METODY (zostają bez zmian)
     # =============================================================
     def detect_peaks(self, df):
-        return PivotDetector(self.pivot_range).apply(df)
+        out = PivotDetector(self.pivot_range).apply(df)
+
+        # LEGACY PATH → zapis do DF
+        if not self.use_engine:
+            df = df.assign(**out)
+            return df
+
+        # ENGINE PATH → engine zrobi assign
+        return out
 
     def detect_eqh_eql_from_pivots(self, df):
         return PivotRelations().apply(df)

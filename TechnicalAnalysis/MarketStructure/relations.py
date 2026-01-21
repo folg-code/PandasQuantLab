@@ -10,84 +10,86 @@ from TechnicalAnalysis.MarketStructure.utils import ensure_indicator
 
 
 class PivotRelations:
-    def apply(self, df: pd.DataFrame) -> pd.DataFrame:
+    def apply(self, df) -> dict[str, pd.Series]:
         return self._detect_eqh_eql_from_pivots(df)
 
 
     def _detect_eqh_eql_from_pivots(
-            self,
-            df: pd.DataFrame,
-            eq_atr_mult: float = 0.2,
-            prefix: str = ""
-    ) -> pd.DataFrame:
-
+        self,
+        df: pd.DataFrame,
+        eq_atr_mult: float = 0.2,
+        prefix: str = "",
+    ) -> dict[str, pd.Series]:
 
         ensure_indicator(df, indicator="atr", period=14)
+
         # =========================
         # Threshold
         # =========================
-        eq_threshold = df['atr'] * eq_atr_mult
+        eq_threshold = df["atr"] * eq_atr_mult
 
         # =========================
         # EQH: HH–HH
         # =========================
         eqh_hh = (
-                (df['HH_idx'].notna()) &
-                (df['HH_idx_shift'].notna()) &
-                (df['HH_idx'] != df['HH_idx_shift']) &
-                ((df['HH'] - df['HH_shift']).abs() <= eq_threshold)
+            df["HH_idx"].notna()
+            & df["HH_idx_shift"].notna()
+            & (df["HH_idx"] != df["HH_idx_shift"])
+            & ((df["HH"] - df["HH_shift"]).abs() <= eq_threshold)
         )
 
         # =========================
         # EQH: HH–LH
         # =========================
         eqh_hh_lh = (
-                (df['LH_idx'].notna()) &
-                (df['HH_idx'].notna()) &
-                (df['LH_idx'] > df['HH_idx']) &
-                (df['LH_idx'] != df['LH_idx_shift']) &
-                ((df['LH'] - df['HH']).abs() <= eq_threshold)
+            df["LH_idx"].notna()
+            & df["HH_idx"].notna()
+            & (df["LH_idx"] > df["HH_idx"])
+            & (df["LH_idx"] != df["LH_idx_shift"])
+            & ((df["LH"] - df["HH"]).abs() <= eq_threshold)
         )
 
-        df[f'{prefix}EQH'] = eqh_hh | eqh_hh_lh
+        EQH = eqh_hh | eqh_hh_lh
 
-        # EQH level
-        df[f'{prefix}EQH_level'] = np.where(
-            eqh_hh, df['HH'],
-            np.where(eqh_hh_lh, df['HH'], np.nan)
-        )
-        df[f'{prefix}EQH_level'] = df[f'{prefix}EQH_level'].ffill()
+        EQH_level = pd.Series(np.nan, index=df.index)
+        EQH_level[eqh_hh] = df["HH"][eqh_hh]
+        EQH_level[eqh_hh_lh] = df["HH"][eqh_hh_lh]
+        EQH_level = EQH_level.ffill()
 
         # =========================
         # EQL: LL–LL
         # =========================
         eql_ll = (
-                (df['LL_idx'].notna()) &
-                (df['LL_idx_shift'].notna()) &
-                (df['LL_idx'] != df['LL_idx_shift']) &
-                ((df['LL'] - df['LL_shift']).abs() <= eq_threshold)
+            df["LL_idx"].notna()
+            & df["LL_idx_shift"].notna()
+            & (df["LL_idx"] != df["LL_idx_shift"])
+            & ((df["LL"] - df["LL_shift"]).abs() <= eq_threshold)
         )
 
         # =========================
         # EQL: LL–HL
         # =========================
         eql_ll_hl = (
-                (df['HL_idx'].notna()) &
-                (df['LL_idx'].notna()) &
-                (df['HL_idx'] > df['LL_idx']) &
-                (df['HL_idx'] != df['HL_idx_shift']) &
-                ((df['HL'] - df['LL']).abs() <= eq_threshold)
+            df["HL_idx"].notna()
+            & df["LL_idx"].notna()
+            & (df["HL_idx"] > df["LL_idx"])
+            & (df["HL_idx"] != df["HL_idx_shift"])
+            & ((df["HL"] - df["LL"]).abs() <= eq_threshold)
         )
 
-        df[f'{prefix}EQL'] = eql_ll | eql_ll_hl
+        EQL = eql_ll | eql_ll_hl
 
-        # EQL level
-        df[f'{prefix}EQL_level'] = np.where(
-            eql_ll, df['LL'],
-            np.where(eql_ll_hl, df['LL'], np.nan)
-        )
-        df[f'{prefix}EQL_level'] = df[f'{prefix}EQL_level'].ffill()
+        EQL_level = pd.Series(np.nan, index=df.index)
+        EQL_level[eql_ll] = df["LL"][eql_ll]
+        EQL_level[eql_ll_hl] = df["LL"][eql_ll_hl]
+        EQL_level = EQL_level.ffill()
 
-
-
-        return df
+        # =========================
+        # OUTPUT (BATCH)
+        # =========================
+        return {
+            f"{prefix}EQH": EQH,
+            f"{prefix}EQH_level": EQH_level,
+            f"{prefix}EQL": EQL,
+            f"{prefix}EQL_level": EQL_level,
+        }
