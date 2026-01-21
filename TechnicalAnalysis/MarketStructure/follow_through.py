@@ -1,27 +1,24 @@
 import numpy as np
 import pandas as pd
 
-from TechnicalAnalysis.MarketStructure.utils import ensure_indicator
+from TechnicalAnalysis.MarketStructure.utils.ensure_indicator import ensure_indicator
 
 
 class PriceActionFollowThrough:
     """
-    Follow-through evaluation for structural events (BOS or MSS).
+    Follow-through evaluation for structural events (BOS or MSS),
+    split by direction (bull / bear).
 
     Semantics:
     - Event happens at t
     - Follow-through is KNOWN at t + lookahead
     - Assigned at t + lookahead
     - NO look-ahead bias
-
-    event_source:
-        - "bos" (production)
-        - "mss" (research)
     """
 
     def __init__(
         self,
-        event_source: str = "bos",
+        event_source: str = "bos",   # "bos" | "mss"
         atr_mult: float = 1.0,
         lookahead: int = 5,
         atr_period: int = 14,
@@ -50,7 +47,6 @@ class PriceActionFollowThrough:
             bear_event = df["bos_bear_event"]
             bull_level = df["bos_bull_level"]
             bear_level = df["bos_bear_level"]
-
         else:  # MSS
             bull_event = df["mss_bull_event"]
             bear_event = df["mss_bear_event"]
@@ -64,7 +60,7 @@ class PriceActionFollowThrough:
         low_N = df["low"].rolling(self.lookahead).min()
 
         # =====================================================
-        # 3️⃣ EVENT AGING
+        # 3️⃣ EVENT AGING (PER DIRECTION)
         # =====================================================
         bull_eval = bull_event.shift(self.lookahead)
         bear_eval = bear_event.shift(self.lookahead)
@@ -75,33 +71,40 @@ class PriceActionFollowThrough:
         atr_eval = df["atr"].shift(self.lookahead)
 
         # =====================================================
-        # 4️⃣ FOLLOW-THROUGH SIZE
+        # 4️⃣ FOLLOW-THROUGH SIZE (ATR-NORMALIZED)
         # =====================================================
-        ft_bull = (high_N - bull_level_eval) / atr_eval
-        ft_bear = (bear_level_eval - low_N) / atr_eval
+        ft_bull_atr = (high_N - bull_level_eval) / atr_eval
+        ft_bear_atr = (bear_level_eval - low_N) / atr_eval
 
-        follow_through_atr = np.where(
-            bull_eval,
-            ft_bull,
-            np.where(bear_eval, ft_bear, np.nan)
+        ft_bull_atr = pd.Series(
+            np.where(bull_eval, ft_bull_atr, np.nan),
+            index=idx,
+        )
+        ft_bear_atr = pd.Series(
+            np.where(bear_eval, ft_bear_atr, np.nan),
+            index=idx,
         )
 
-        follow_through_atr = pd.Series(follow_through_atr, index=idx)
+        # =====================================================
+        # 5️⃣ VALID / WEAK (PER DIRECTION)
+        # =====================================================
+        bull_valid = ft_bull_atr >= self.atr_mult
+        bull_weak = bull_eval & ~bull_valid
+
+        bear_valid = ft_bear_atr >= self.atr_mult
+        bear_weak = bear_eval & ~bear_valid
 
         # =====================================================
-        # 5️⃣ VALID / WEAK EVENT (GENERIC)
+        # 6️⃣ OUTPUT
         # =====================================================
-        event_eval_mask = bull_eval | bear_eval
-        event_valid = (follow_through_atr >= self.atr_mult) & event_eval_mask
-        event_weak = event_eval_mask & ~event_valid
-
-        # =====================================================
-        # 6️⃣ OUTPUT (NAMESPACED)
-        # =====================================================
-        prefix = f"{self.event_source}_ft"
+        p = self.event_source
 
         return {
-            f"{prefix}_atr": follow_through_atr,
-            f"{prefix}_valid": event_valid,
-            f"{prefix}_weak": event_weak,
+            f"{p}_bull_ft_atr": ft_bull_atr,
+            f"{p}_bull_ft_valid": bull_valid,
+            f"{p}_bull_ft_weak": bull_weak,
+
+            f"{p}_bear_ft_atr": ft_bear_atr,
+            f"{p}_bear_ft_valid": bear_valid,
+            f"{p}_bear_ft_weak": bear_weak,
         }
