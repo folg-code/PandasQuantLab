@@ -51,10 +51,16 @@ class PivotDetector:
             .shift(pivot_range // 2)
         )[local_low_price]
 
-        HH_cond = local_high_price & (pivotprice > pivotprice.shift(1))
-        LL_cond = local_low_price & (pivotprice < pivotprice.shift(1))
-        LH_cond = local_high_price & (pivotprice < pivotprice.shift(1))
-        HL_cond = local_low_price & (pivotprice > pivotprice.shift(1))
+        high_pivots = pivotprice[local_high_price]
+        low_pivots = pivotprice[local_low_price]
+
+        prev_high = high_pivots.shift(1).reindex(df.index)
+        prev_low = low_pivots.shift(1).reindex(df.index)
+
+        HH_cond = local_high_price & (pivotprice  > prev_high)
+        LH_cond = local_high_price & (pivotprice  < prev_high)
+        LL_cond = local_low_price & (pivotprice  < prev_low)
+        HL_cond = local_low_price & (pivotprice  > prev_low)
 
         pivot[local_high_price] = 1
         pivot[local_low_price] = 2
