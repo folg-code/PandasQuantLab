@@ -5,6 +5,7 @@ import pandas as pd
 import talib.abstract as ta
 from debugpy.launcher.debuggee import describe
 
+from TechnicalAnalysis.MarketStructure.engine import MarketStructureEngine
 from TechnicalAnalysis.MarketStructure.fibo import FiboCalculator
 from TechnicalAnalysis.MarketStructure.pivots import PivotDetector
 from TechnicalAnalysis.MarketStructure.price_action import PriceActionStateEngine
@@ -15,30 +16,75 @@ class IntradayMarketStructure:
     def __init__(
         self,
         pivot_range: int = 15,
-        min_percentage_change: float = 0.01
+        min_percentage_change: float = 0.01,
+        use_engine: bool = False,   # 👈 KLUCZOWE
     ):
         self.pivot_range = pivot_range
         self.min_percentage_change = min_percentage_change
+        self.use_engine = use_engine
+
+        # 🔹 nowy engine (ale jeszcze opcjonalny)
+        self.engine = MarketStructureEngine(
+            pivot_detector=PivotDetector(self.pivot_range),
+            relations=PivotRelations(),
+            fibo=FiboCalculator(),
+            price_action=PriceActionStateEngine(),
+        )
 
     # =============================================================
-    # 1️⃣ DETEKCJA PIVOTÓW
+    # PUBLIC ENTRYPOINT
+    # =============================================================
+    def apply(self, df: pd.DataFrame):
+        if self.use_engine:
+            return self.apply_engine(df)
+        else:
+            return self.apply_legacy(df)
+
+    # =============================================================
+    # LEGACY PIPELINE (1:1 jak było)
+    # =============================================================
+    def apply_legacy(self, df: pd.DataFrame):
+        self.detect_peaks(df)
+        self.detect_eqh_eql_from_pivots(df)
+        self.detect_fibo(df)
+        self.detect_price_action(df)
+        self.track_bos_follow_through(df)
+        self.detect_trend_regime(df)
+        self.generate_price_action_context(df)
+        self.enrich_pa_context(df)
+        self.detect_microstructure_regime(df)
+        self.calculate_structural_volatility(df)
+
+        return df
+
+    # =============================================================
+    # ENGINE PIPELINE (batch write)
+    # =============================================================
+    def apply_engine(self, df: pd.DataFrame):
+        # na razie TYLKO to, co już przeszło refactor
+        df = self.engine.apply(df)
+
+        # reszta wciąż legacy (tymczasowo)
+        self.track_bos_follow_through(df)
+        self.detect_trend_regime(df)
+        self.generate_price_action_context(df)
+        self.enrich_pa_context(df)
+        self.detect_microstructure_regime(df)
+        self.calculate_structural_volatility(df)
+
+        return df
+
+    # =============================================================
+    # STARE METODY (zostają bez zmian)
     # =============================================================
     def detect_peaks(self, df):
-        detector = PivotDetector(self.pivot_range)
-        return detector.apply(df)
+        return PivotDetector(self.pivot_range).apply(df)
 
     def detect_eqh_eql_from_pivots(self, df):
         return PivotRelations().apply(df)
 
-    # =============================================================
-    # 2️⃣ DETEKCJA POZIOMÓW FIBO
-    # =============================================================
     def detect_fibo(self, df):
         return FiboCalculator().apply(df)
-
-    # =============================================================
-    # 3️⃣ DETEKCJA PRICE ACTION
-    # =============================================================
 
     def detect_price_action(self, df):
         return PriceActionStateEngine().apply(df)
@@ -558,19 +604,3 @@ class IntradayMarketStructure:
 
         return df
 
-    # =============================================================
-    # 5️⃣ PIPELINE – całość
-    # =============================================================
-    def apply(self, df: pd.DataFrame):
-        self.detect_peaks(df)
-        self.detect_eqh_eql_from_pivots(df)
-        self.detect_fibo(df)
-        self.detect_price_action(df)
-        self.track_bos_follow_through(df)
-        self.detect_trend_regime(df)
-        self.generate_price_action_context(df)
-        self.enrich_pa_context(df)
-        self.detect_microstructure_regime(df)
-        self.calculate_structural_volatility(df)
-
-        return df
