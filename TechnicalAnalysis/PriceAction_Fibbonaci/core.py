@@ -1,8 +1,9 @@
 #TechnicalAnalysis/PriceAction_Fibbonaci/core.py
+import numpy as np
 import pandas as pd
 
 from TechnicalAnalysis.MarketStructure.engine import MarketStructureEngine
-from TechnicalAnalysis.MarketStructure.pivots import PivotDetector
+from TechnicalAnalysis.MarketStructure.pivots import PivotDetector, PivotDetectorBatched
 from TechnicalAnalysis.MarketStructure.price_action_liquidity import PriceActionLiquidityResponse
 from TechnicalAnalysis.MarketStructure.relations import PivotRelations
 from TechnicalAnalysis.MarketStructure.fibo import FiboCalculator
@@ -78,6 +79,21 @@ class IntradayMarketStructure:
         out: dict[str, pd.Series] = {}
 
         out.update(self.detect_peaks(df))
+
+        old = PivotDetector(self.pivot_range).apply(df)
+        new = PivotDetectorBatched(self.pivot_range).apply(df)
+
+        def equal_series(a: pd.Series, b: pd.Series) -> bool:
+            return (
+                a.fillna(-1).astype(int)
+                .equals(
+                    b.fillna(-1).astype(int)
+                )
+            )
+
+        for k in old:
+            assert equal_series(old[k], new[k]), k
+
         out.update(self.detect_eqh_eql_from_pivots(df))
         out.update(self.detect_fibo(df))
         out.update(self.detect_price_action(df))
