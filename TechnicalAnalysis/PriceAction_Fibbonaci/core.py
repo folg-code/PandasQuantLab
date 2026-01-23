@@ -4,7 +4,8 @@ import pandas as pd
 
 from TechnicalAnalysis.MarketStructure.engine import MarketStructureEngine
 from TechnicalAnalysis.MarketStructure.pivots import PivotDetector, PivotDetectorBatched
-from TechnicalAnalysis.MarketStructure.price_action_liquidity import PriceActionLiquidityResponse
+from TechnicalAnalysis.MarketStructure.price_action_liquidity import PriceActionLiquidityResponse, \
+    PriceActionLiquidityResponseBatched
 from TechnicalAnalysis.MarketStructure.relations import PivotRelations, PivotRelationsBatched
 from TechnicalAnalysis.MarketStructure.fibo import FiboCalculator, FiboBatched
 from TechnicalAnalysis.MarketStructure.price_action import PriceActionStateEngine, PriceActionStateEngineBatched
@@ -166,6 +167,32 @@ class IntradayMarketStructure:
             assert eq(legacy[k], batched[k]), k
 
         print("FOLLOW THROUGH BATCHED: 1:1 OK")
+
+
+        legacy = PriceActionLiquidityResponse(
+            event_source="bos",
+            direction="bull",
+        ).apply(df_legacy)
+
+        batched = PriceActionLiquidityResponseBatched(
+            event_source="bos",
+            direction="bull",
+        ).apply(
+            events={
+                "bos_bull_event": batched_out["bos_bull_event"],
+            },
+            levels={
+                "bos_bull_level": batched_out["bos_bull_level"],
+            },
+            df=df,
+        )
+
+        print(batched)
+
+        for k in legacy:
+            assert eq(legacy[k], batched[k]), k
+
+        print("LIQUIDITY RESPONSE BATCHED: 1:1 OK")
 
         #out.update(self.detect_price_action_liquidity_response(df))
         #out.update(self.calculate_structural_volatility(df))

@@ -1,9 +1,15 @@
 import numpy as np
 import pandas as pd
 
+from typing import Literal
+
 from TechnicalAnalysis.MarketStructure.utils.detect_level_reaction import detect_level_reaction
 from TechnicalAnalysis.MarketStructure.utils.ensure_indicator import ensure_indicator
 
+
+# ==========================================================
+# LEGACY IMPLEMENTATION (REFERENCE)
+# ==========================================================
 
 class PriceActionLiquidityResponse:
     """
@@ -20,19 +26,14 @@ class PriceActionLiquidityResponse:
     def __init__(
         self,
         *,
-        event_source: str = "bos",      # "bos" | "mss"
-        direction: str = "bull",         # "bull" | "bear"
+        event_source: Literal["bos", "mss"] = "bos",
+        direction: Literal["bull", "bear"] = "bull",
         reaction_window: int = 5,
         early_window: int = 5,
         late_window: int = 5,
         atr_distance: float = 1.0,
         atr_period: int = 14,
     ):
-        if event_source not in ("bos", "mss"):
-            raise ValueError("event_source must be 'bos' or 'mss'")
-        if direction not in ("bull", "bear"):
-            raise ValueError("direction must be 'bull' or 'bear'")
-
         self.event_source = event_source
         self.direction = direction
         self.reaction_window = reaction_window
@@ -41,37 +42,27 @@ class PriceActionLiquidityResponse:
         self.atr_distance = atr_distance
         self.atr_period = atr_period
 
-    # ==========================================================
-    # MAIN
-    # ==========================================================
     def apply(self, df: pd.DataFrame) -> dict[str, pd.Series]:
         idx = df.index
         p = self.event_source
         d = self.direction
 
         # ======================================================
-        # 0️⃣ ENSURE ATR
+        # ENSURE ATR
         # ======================================================
         ensure_indicator(df, indicator="atr", period=self.atr_period)
 
         # ======================================================
-        # 1️⃣ MAP EVENT + LEVEL
+        # EVENT + LEVEL
         # ======================================================
-        event_col = f"{p}_{d}_event"
-        level_col = f"{p}_{d}_level"
+        event = df[f"{p}_{d}_event"]
+        level = df[f"{p}_{d}_level"]
 
-        if event_col not in df or level_col not in df:
-            raise ValueError(f"Missing columns: {event_col}, {level_col}")
-
-        event = df[event_col]
-        level = df[level_col]
-
-        # follow-through quality (if exists)
         ft_valid = df.get(f"{p}_{d}_ft_valid", pd.Series(False, index=idx))
         ft_weak = df.get(f"{p}_{d}_ft_weak", pd.Series(False, index=idx))
 
         # ======================================================
-        # 2️⃣ EVENT INDEX + TIME SINCE EVENT
+        # EVENT INDEX + TIME
         # ======================================================
         event_idx = pd.Series(
             np.where(event, idx, np.nan),
@@ -81,13 +72,13 @@ class PriceActionLiquidityResponse:
         bars_since_event = idx - event_idx
 
         # ======================================================
-        # 3️⃣ DISTANCE FROM LEVEL (ATR NORMALIZED)
+        # DISTANCE
         # ======================================================
         dist_atr = (df["close"] - level).abs() / df["atr"]
         max_dist_atr = dist_atr.groupby(event_idx).cummax()
 
         # ======================================================
-        # 4️⃣ EXPLICIT LEVEL REACTION
+        # REACTION
         # ======================================================
         reaction = detect_level_reaction(
             df,
@@ -100,7 +91,7 @@ class PriceActionLiquidityResponse:
         reaction_strength = reaction["reaction_strength"]
 
         # ======================================================
-        # 5️⃣ LIQUIDITY GRAB
+        # LIQ GRAB
         # ======================================================
         liq_grab = (
             ft_weak
@@ -110,7 +101,7 @@ class PriceActionLiquidityResponse:
         )
 
         # ======================================================
-        # 6️⃣ S/R FLIP (BREAKOUT–RETEST)
+        # SR FLIP
         # ======================================================
         sr_flip = (
             ft_valid
@@ -119,9 +110,6 @@ class PriceActionLiquidityResponse:
             & reaction_type.isin(["reclaim", "strong_candle"])
         )
 
-        # ======================================================
-        # 7️⃣ OUTPUT
-        # ======================================================
         prefix = f"{p}_{d}"
 
         return {
@@ -131,4 +119,189 @@ class PriceActionLiquidityResponse:
             f"{prefix}_max_dist_atr": max_dist_atr,
             f"{prefix}_reaction_type": reaction_type,
             f"{prefix}_reaction_strength": reaction_strength,
+        }
+
+
+# ==========================================================
+# BATCHED IMPLEMENTATION (LEGACY + EXPERIMENTAL)
+# ==========================================================
+
+class PriceActionLiquidityResponseBatched:
+    def __init__(
+        self,
+        *,
+        event_source: Literal["bos", "mss"],
+        direction: Literal["bull", "bear"],
+        mode: Literal["legacy", "experimental"] = "legacy",
+        reaction_window: int = 5,
+        early_window: int = 5,
+        late_window: int = 5,
+        atr_dist_mult_grab: float = 1.0,
+        atr_dist_mult_flip: float = 1.0,
+    ):
+        self.event_source = event_source
+        self.direction = direction
+        self.mode = mode
+        self.reaction_window = reaction_window
+        self.early_window = early_window
+        self.late_window = late_window
+        self.atr_dist_mult_grab = atr_dist_mult_grab
+        self.atr_dist_mult_flip = atr_dist_mult_flip
+
+    # ======================================================
+    # PUBLIC
+    # ======================================================
+    def apply(
+        self,
+        *,
+        events: dict[str, pd.Series],
+        levels: dict[str, pd.Series],
+        df: pd.DataFrame,
+    ) -> dict[str, pd.Series]:
+
+        if self.mode == "legacy":
+            return self._apply_legacy(events=events, levels=levels, df=df)
+
+        if self.mode == "experimental":
+            return self._apply_experimental(events=events, levels=levels, df=df)
+
+        raise ValueError("mode must be 'legacy' or 'experimental'")
+
+    # ======================================================
+    # LEGACY (1:1)
+    # ======================================================
+    def _apply_legacy(
+        self,
+        *,
+        events: dict[str, pd.Series],
+        levels: dict[str, pd.Series],
+        df: pd.DataFrame,
+    ) -> dict[str, pd.Series]:
+
+        idx = df.index
+        p = self.event_source
+        d = self.direction
+
+        event = events[f"{p}_{d}_event"]
+        level = levels[f"{p}_{d}_level"]
+
+        ft_valid = df.get(f"{p}_{d}_ft_valid", pd.Series(False, index=idx))
+        ft_weak = df.get(f"{p}_{d}_ft_weak", pd.Series(False, index=idx))
+
+        # EVENT INDEX
+        event_idx = pd.Series(np.nan, index=idx)
+        event_idx[event] = idx[event]
+        event_idx = event_idx.ffill()
+
+        bars_since_event = idx - event_idx
+
+        # DISTANCE
+        dist_atr = (df["close"] - level).abs() / df["atr"]
+        max_dist_atr = dist_atr.groupby(event_idx).cummax()
+
+        # REACTION
+        reaction = detect_level_reaction(
+            df,
+            level=level,
+            direction=d,
+            window=self.reaction_window,
+        )
+
+        reaction_type = reaction["reaction_type"]
+        reaction_strength = reaction["reaction_strength"]
+
+        liq_grab = (
+            ft_weak
+            & (bars_since_event <= self.early_window)
+            & (max_dist_atr <= self.atr_dist_mult_grab)
+            & reaction_type.isin(["reclaim", "weak_reject"])
+        )
+
+        sr_flip = (
+            ft_valid
+            & (bars_since_event >= self.late_window)
+            & (max_dist_atr >= self.atr_dist_mult_flip)
+            & reaction_type.isin(["reclaim", "strong_candle"])
+        )
+
+        prefix = f"{p}_{d}"
+
+        return {
+            f"liq_grab_{prefix}": liq_grab,
+            f"sr_flip_{prefix}": sr_flip,
+            f"{prefix}_bars_since_event": bars_since_event,
+            f"{prefix}_max_dist_atr": max_dist_atr,
+            f"{prefix}_reaction_type": reaction_type,
+            f"{prefix}_reaction_strength": reaction_strength,
+        }
+
+    # ======================================================
+    # EXPERIMENTAL (WINDOWED LOGIC)
+    # ======================================================
+    def _apply_experimental(
+        self,
+        *,
+        events: dict[str, pd.Series],
+        levels: dict[str, pd.Series],
+        df: pd.DataFrame,
+    ) -> dict[str, pd.Series]:
+
+        idx = df.index
+        p = self.event_source
+        d = self.direction
+        N = self.reaction_window
+
+        event = events[f"{p}_{d}_event"]
+        level = levels[f"{p}_{d}_level"]
+
+        # EVENT INDEX
+        event_idx = pd.Series(np.nan, index=idx)
+        event_idx[event] = idx[event]
+        event_idx = event_idx.ffill()
+
+        time_after = idx - event_idx
+        time_dist = time_after.abs()
+
+        atr = df["atr"]
+
+        rolling_high = df["high"].rolling(N).max()
+        rolling_low = df["low"].rolling(N).min()
+        rolling_close = df["close"].rolling(N).mean()
+
+        if d == "bear":
+            level_break = rolling_high > level
+            reaction_dir = "bear"
+        else:
+            level_break = rolling_low < level
+            reaction_dir = "bull"
+
+        price_dist = (rolling_close - level).abs()
+
+        reaction = detect_level_reaction(
+            df,
+            level=level,
+            direction=reaction_dir,
+            window=N,
+        )
+
+        has_reaction = reaction["reaction_strength"] > 0
+
+        liq_grab = (
+            level_break
+            & has_reaction
+            & (time_dist <= self.early_window)
+            & (price_dist < atr * self.atr_dist_mult_grab)
+        )
+
+        sr_flip = (
+            has_reaction
+            & (time_after > self.late_window)
+            & (price_dist > atr * self.atr_dist_mult_flip)
+        )
+
+        prefix = f"{p}_{d}"
+
+        return {
+            f"liq_grab_{prefix}_exp": liq_grab,
+            f"sr_flip_{prefix}_exp": sr_flip,
         }
