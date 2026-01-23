@@ -20,8 +20,8 @@ class PriceActionStructuralVolatility:
         event_source: str = "bos",     # "bos" | "mss"
         direction: str = "bull",       # "bull" | "bear"
         window: int = 10,
-        low_thr: float = 0.8,
-        high_thr: float = 1.5,
+        low_thr: float = 0.6,
+        high_thr: float = 1.3,
         atr_period: int = 14,
     ):
         if event_source not in ("bos", "mss"):
