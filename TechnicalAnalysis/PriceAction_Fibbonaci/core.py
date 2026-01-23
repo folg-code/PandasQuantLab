@@ -8,7 +8,7 @@ from TechnicalAnalysis.MarketStructure.price_action_liquidity import PriceAction
 from TechnicalAnalysis.MarketStructure.relations import PivotRelations, PivotRelationsBatched
 from TechnicalAnalysis.MarketStructure.fibo import FiboCalculator, FiboBatched
 from TechnicalAnalysis.MarketStructure.price_action import PriceActionStateEngine, PriceActionStateEngineBatched
-from TechnicalAnalysis.MarketStructure.follow_through import PriceActionFollowThrough
+from TechnicalAnalysis.MarketStructure.follow_through import PriceActionFollowThrough, PriceActionFollowThroughBatched
 from TechnicalAnalysis.MarketStructure.structural_volatility import PriceActionStructuralVolatility
 from TechnicalAnalysis.MarketStructure.trend_regime import PriceActionTrendRegime
 
@@ -127,6 +127,8 @@ class IntradayMarketStructure:
 
         legacy_out = PriceActionStateEngine().apply(df_legacy)
 
+        df_legacy = df_legacy.assign(**legacy_out)
+
         batched_out = PriceActionStateEngineBatched().apply(
             pivots=pivots_legacy,
             close=df["close"],
@@ -137,8 +139,34 @@ class IntradayMarketStructure:
 
         print("PRICE ACTION STATE ENGINE: 1:1 OK")
 
+        # ===== legacy =====
 
-        #out.update(self.detect_follow_through(df))
+        print(df_legacy)
+        legacy = PriceActionFollowThrough(event_source="bos").apply(df_legacy)
+
+        batched = PriceActionFollowThroughBatched(
+            event_source="bos",
+            atr_mult=1.0,
+            lookahead=5,
+        ).apply(
+            events={
+                "bos_bull_event": batched_out["bos_bull_event"],
+                "bos_bear_event": batched_out["bos_bear_event"],
+            },
+            levels={
+                "bos_bull_level": batched_out["bos_bull_level"],
+                "bos_bear_level": batched_out["bos_bear_level"],
+            },
+            high=df["high"],
+            low=df["low"],
+            atr=df["atr"],
+        )
+
+        for k in legacy:
+            assert eq(legacy[k], batched[k]), k
+
+        print("FOLLOW THROUGH BATCHED: 1:1 OK")
+
         #out.update(self.detect_price_action_liquidity_response(df))
         #out.update(self.calculate_structural_volatility(df))
         #out.update(self.detect_trend_regime(df))
