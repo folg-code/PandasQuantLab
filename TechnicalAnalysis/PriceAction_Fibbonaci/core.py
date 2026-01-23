@@ -6,7 +6,7 @@ from TechnicalAnalysis.MarketStructure.engine import MarketStructureEngine
 from TechnicalAnalysis.MarketStructure.pivots import PivotDetector, PivotDetectorBatched
 from TechnicalAnalysis.MarketStructure.price_action_liquidity import PriceActionLiquidityResponse
 from TechnicalAnalysis.MarketStructure.relations import PivotRelations, PivotRelationsBatched
-from TechnicalAnalysis.MarketStructure.fibo import FiboCalculator
+from TechnicalAnalysis.MarketStructure.fibo import FiboCalculator, FiboBatched
 from TechnicalAnalysis.MarketStructure.price_action import PriceActionStateEngine
 from TechnicalAnalysis.MarketStructure.follow_through import PriceActionFollowThrough
 from TechnicalAnalysis.MarketStructure.structural_volatility import PriceActionStructuralVolatility
@@ -88,6 +88,9 @@ class IntradayMarketStructure:
                 )
             )
 
+        def eq(a, b):
+            return a.fillna(-1).equals(b.fillna(-1))
+
         # legacy
         pivots_legacy = PivotDetector(self.pivot_range).apply(df)
         df_legacy = df.assign(**pivots_legacy)
@@ -106,6 +109,21 @@ class IntradayMarketStructure:
 
         print("COLUMNS SAME")
 
+        legacy = FiboCalculator(
+            pivot_range=self.pivot_range,
+            mode="swing",
+            prefix="fibo_swing",
+        ).apply(df.assign(**pivots_legacy))
+
+        batched = FiboBatched(
+            pivot_range=self.pivot_range,
+            mode="swing",
+            prefix="fibo_swing",).apply(pivots=pivots_batched)
+
+        for k in legacy:
+            assert eq(legacy[k], batched[k]), k
+
+        print("FIBO SAME")
         #out.update(self.detect_fibo(df))
         #out.update(self.detect_price_action(df))
         #out.update(self.detect_follow_through(df))
