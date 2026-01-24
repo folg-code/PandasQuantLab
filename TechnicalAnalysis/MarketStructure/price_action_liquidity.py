@@ -112,6 +112,25 @@ class PriceActionLiquidityResponse:
 
         prefix = f"{p}_{d}"
 
+        print(f"\n=== LEGACY LIQ DEBUG ({p}_{d}) ===")
+        print("event True:", event.sum())
+        print("ft_valid True:", ft_valid.sum())
+        print("ft_weak True:", ft_weak.sum())
+
+        print("event_idx NaN:", event_idx.isna().sum())
+        print("bars_since_event < 0:", (bars_since_event < 0).sum())
+
+        print("max_dist_atr > atr_distance:",
+              (max_dist_atr >= self.atr_distance).sum())
+
+        print("reaction_type counts:")
+        print(reaction_type.value_counts())
+
+        print("liq_grab True:", liq_grab.sum())
+        print("sr_flip True:", sr_flip.sum())
+
+        print("sr_flip True idx:", sr_flip[sr_flip].index[:10].tolist())
+
         return {
             f"liq_grab_{prefix}": liq_grab,
             f"sr_flip_{prefix}": sr_flip,
@@ -156,11 +175,12 @@ class PriceActionLiquidityResponseBatched:
         *,
         events: dict[str, pd.Series],
         levels: dict[str, pd.Series],
+        follow_through: dict[str, pd.Series],
         df: pd.DataFrame,
     ) -> dict[str, pd.Series]:
 
         if self.mode == "legacy":
-            return self._apply_legacy(events=events, levels=levels, df=df)
+            return self._apply_legacy(events=events, levels=levels, follow_through=follow_through, df=df)
 
         if self.mode == "experimental":
             return self._apply_experimental(events=events, levels=levels, df=df)
@@ -175,8 +195,12 @@ class PriceActionLiquidityResponseBatched:
         *,
         events: dict[str, pd.Series],
         levels: dict[str, pd.Series],
+        follow_through: dict[str, pd.Series],
         df: pd.DataFrame,
     ) -> dict[str, pd.Series]:
+
+        assert any(k.endswith("_ft_valid") for k in follow_through), \
+            "FOLLOW THROUGH missing in LiquidityResponseBatched"
 
         idx = df.index
         p = self.event_source
@@ -185,8 +209,10 @@ class PriceActionLiquidityResponseBatched:
         event = events[f"{p}_{d}_event"]
         level = levels[f"{p}_{d}_level"]
 
-        ft_valid = df.get(f"{p}_{d}_ft_valid", pd.Series(False, index=idx))
-        ft_weak = df.get(f"{p}_{d}_ft_weak", pd.Series(False, index=idx))
+        ft_valid = follow_through[f"{p}_{d}_ft_valid"]
+        ft_weak = follow_through[f"{p}_{d}_ft_weak"]
+
+
 
         # EVENT INDEX
         event_idx = pd.Series(np.nan, index=idx)
@@ -224,7 +250,31 @@ class PriceActionLiquidityResponseBatched:
             & reaction_type.isin(["reclaim", "strong_candle"])
         )
 
+        # 🔒 LEGACY STATE SEMANTICS
+        sr_flip = sr_flip.ffill().fillna(False)
+
         prefix = f"{p}_{d}"
+
+        print(f"\n=== BATCHED LIQ DEBUG ({p}_{d}) ===")
+        print("event True:", event.sum())
+        print("ft_valid True:", ft_valid.sum())
+        print("ft_weak True:", ft_weak.sum())
+
+        print("event_idx NaN:", event_idx.isna().sum())
+        print("bars_since_event < 0:", (bars_since_event < 0).sum())
+
+        print("max_dist_atr > atr_dist_mult_flip:",
+              (max_dist_atr >= self.atr_dist_mult_flip).sum())
+
+        print("reaction_type counts:")
+        print(reaction_type.value_counts())
+
+        print("liq_grab True:", liq_grab.sum())
+        print("sr_flip True (raw):", sr_flip.sum())
+
+        print("sr_flip True idx (raw):",
+              sr_flip[sr_flip].index[:10].tolist())
+
 
         return {
             f"liq_grab_{prefix}": liq_grab,

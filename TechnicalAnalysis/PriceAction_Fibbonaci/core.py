@@ -12,7 +12,7 @@ from TechnicalAnalysis.MarketStructure.price_action import PriceActionStateEngin
 from TechnicalAnalysis.MarketStructure.follow_through import PriceActionFollowThrough, PriceActionFollowThroughBatched
 from TechnicalAnalysis.MarketStructure.structural_volatility import PriceActionStructuralVolatility, \
     PriceActionStructuralVolatilityBatched
-from TechnicalAnalysis.MarketStructure.trend_regime import PriceActionTrendRegime
+from TechnicalAnalysis.MarketStructure.trend_regime import PriceActionTrendRegime, PriceActionTrendRegimeBatched
 
 
 class IntradayMarketStructure:
@@ -78,145 +78,289 @@ class IntradayMarketStructure:
     # LEGACY PIPELINE (CLEAN, BATCH)
     # =============================================================
     def apply_legacy(self, df: pd.DataFrame) -> pd.DataFrame:
-        out: dict[str, pd.Series] = {}
-
-
-
+        # ======================================================
+        # helpers
+        # ======================================================
         def equal_series(a: pd.Series, b: pd.Series) -> bool:
             return (
                 a.fillna(-1).astype(int)
-                .equals(
-                    b.fillna(-1).astype(int)
-                )
+                .equals(b.fillna(-1).astype(int))
             )
 
-        def eq(a, b):
+        def eq(a: pd.Series, b: pd.Series) -> bool:
             return a.fillna(-1).equals(b.fillna(-1))
 
-        # legacy
+        # ======================================================
+        # 1️⃣ PIVOTS
+        # ======================================================
         pivots_legacy = PivotDetector(self.pivot_range).apply(df)
         df_legacy = df.assign(**pivots_legacy)
-        relations_legacy = PivotRelations().apply(df_legacy)
 
-        # batched
         pivots_batched = PivotDetectorBatched(self.pivot_range).apply(df)
+
+        for k in pivots_legacy:
+            assert equal_series(pivots_legacy[k], pivots_batched[k]), f"PIVOT {k}"
+
+        print("✅ PIVOTS: 1:1 OK")
+
+        # ======================================================
+        # 2️⃣ PIVOT RELATIONS (EQH / EQL)
+        # ======================================================
+        relations_legacy = PivotRelations().apply(df_legacy)
         relations_batched = PivotRelationsBatched().apply(
             pivots=pivots_batched,
-            atr=df["atr"]
+            atr=df["atr"],
         )
 
-        # compare
         for k in relations_legacy:
-            assert equal_series(relations_legacy[k], relations_batched[k]), k
+            assert equal_series(relations_legacy[k], relations_batched[k]), f"REL {k}"
 
-        print("COLUMNS SAME")
+        print("✅ PIVOT RELATIONS: 1:1 OK")
 
-        legacy = FiboCalculator(
+        # ======================================================
+        # 3️⃣ FIBO (SWING)
+        # ======================================================
+        fibo_legacy = FiboCalculator(
             pivot_range=self.pivot_range,
             mode="swing",
             prefix="fibo_swing",
-        ).apply(df.assign(**pivots_legacy))
+        ).apply(df_legacy)
 
-        batched = FiboBatched(
+        fibo_batched = FiboBatched(
             pivot_range=self.pivot_range,
             mode="swing",
-            prefix="fibo_swing",).apply(pivots=pivots_batched)
+            prefix="fibo_swing",
+        ).apply(pivots=pivots_batched)
 
-        for k in legacy:
-            assert eq(legacy[k], batched[k]), k
+        for k in fibo_legacy:
+            assert eq(fibo_legacy[k], fibo_batched[k]), f"FIBO {k}"
 
-        print("FIBO SAME")
+        print("✅ FIBO: 1:1 OK")
 
-        legacy_out = PriceActionStateEngine().apply(df_legacy)
+        # ======================================================
+        # 4️⃣ PRICE ACTION STATE (BOS / MSS)
+        # ======================================================
+        pa_legacy = PriceActionStateEngine().apply(df_legacy)
+        df_legacy = df_legacy.assign(**pa_legacy)
 
-        df_legacy = df_legacy.assign(**legacy_out)
-
-        batched_out = PriceActionStateEngineBatched().apply(
+        pa_batched = PriceActionStateEngineBatched().apply(
             pivots=pivots_legacy,
             close=df["close"],
         )
 
-        for k in legacy_out:
-            assert eq(legacy_out[k], batched_out[k]), k
+        for k in pa_legacy:
+            assert eq(pa_legacy[k], pa_batched[k]), f"PA STATE {k}"
 
-        print("PRICE ACTION STATE ENGINE: 1:1 OK")
+        print("✅ PRICE ACTION STATE: 1:1 OK")
 
-        # ===== legacy =====
+        # ======================================================
+        # 5️⃣ FOLLOW THROUGH (BOS + MSS)
+        # ======================================================
+        ft_legacy_bos = PriceActionFollowThrough(event_source="bos").apply(df_legacy)
+        df_legacy = df_legacy.assign(**ft_legacy_bos)
+        ft_legacy_mss = PriceActionFollowThrough(event_source="mss").apply(df_legacy)
+        df_legacy = df_legacy.assign(**ft_legacy_mss)
 
-        print(df_legacy)
-        legacy = PriceActionFollowThrough(event_source="bos").apply(df_legacy)
 
-        batched = PriceActionFollowThroughBatched(
+
+        ft_bos = PriceActionFollowThroughBatched(
             event_source="bos",
             atr_mult=1.0,
             lookahead=5,
         ).apply(
             events={
-                "bos_bull_event": batched_out["bos_bull_event"],
-                "bos_bear_event": batched_out["bos_bear_event"],
+                "bos_bull_event": pa_batched["bos_bull_event"],
+                "bos_bear_event": pa_batched["bos_bear_event"],
             },
             levels={
-                "bos_bull_level": batched_out["bos_bull_level"],
-                "bos_bear_level": batched_out["bos_bear_level"],
+                "bos_bull_level": pa_batched["bos_bull_level"],
+                "bos_bear_level": pa_batched["bos_bear_level"],
             },
             high=df["high"],
             low=df["low"],
             atr=df["atr"],
         )
 
-        for k in legacy:
-            assert eq(legacy[k], batched[k]), k
-
-        print("FOLLOW THROUGH BATCHED: 1:1 OK")
-
-
-        legacy = PriceActionLiquidityResponse(
-            event_source="bos",
-            direction="bull",
-        ).apply(df_legacy)
-
-        batched = PriceActionLiquidityResponseBatched(
-            event_source="bos",
-            direction="bull",
+        ft_mss = PriceActionFollowThroughBatched(
+            event_source="mss",
+            atr_mult=1.0,
+            lookahead=5,
         ).apply(
             events={
-                "bos_bull_event": batched_out["bos_bull_event"],
+                "mss_bull_event": pa_batched["mss_bull_event"],
+                "mss_bear_event": pa_batched["mss_bear_event"],
             },
             levels={
-                "bos_bull_level": batched_out["bos_bull_level"],
+                "mss_bull_level": pa_batched["mss_bull_level"],
+                "mss_bear_level": pa_batched["mss_bear_level"],
             },
-            df=df,
+            high=df["high"],
+            low=df["low"],
+            atr=df["atr"],
         )
 
+        for k in ft_legacy_bos:
+            assert eq(ft_legacy_bos[k], ft_bos[k]), f"FT {k}"
 
-        for k in legacy:
-            assert eq(legacy[k], batched[k]), k
+        print("✅ FOLLOW THROUGH: 1:1 OK")
 
-        print("LIQUIDITY RESPONSE BATCHED: 1:1 OK")
-
-        legacy = PriceActionStructuralVolatility(
+        # ======================================================
+        # 6️⃣ LIQUIDITY RESPONSE (BOS BULL)
+        # ======================================================
+        liq_legacy = PriceActionLiquidityResponse(
             event_source="bos",
             direction="bull",
         ).apply(df_legacy)
 
-        batched = PriceActionStructuralVolatilityBatched(
+        liq_batched = PriceActionLiquidityResponseBatched(
             event_source="bos",
             direction="bull",
         ).apply(
-            events={
-                "bos_bull_event": batched_out["bos_bull_event"],
-            },
+            events={"bos_bull_event": pa_batched["bos_bull_event"]},
+            levels={"bos_bull_level": pa_batched["bos_bull_level"]},
+            follow_through={
+                "bos_bull_ft_valid": ft_bos["bos_bull_ft_valid"],
+                "bos_bull_ft_weak": ft_bos["bos_bull_ft_weak"],},
             df=df,
         )
 
-        for k in legacy:
-            assert legacy[k].fillna(-1).equals(batched[k].fillna(-1)), k
 
-        print("STRUCTURAL VOLATILITY BATCHED: 1:1 OK")
 
-        #out.update(self.detect_trend_regime(df))
+        diff_liq = liq_legacy["sr_flip_bos_bull"].compare(
+            liq_batched["sr_flip_bos_bull"]
+        )
 
-        return df.assign(**out)
+        print("FIRST LIQ DIFF:")
+        print(diff_liq.head(10))
+        print("LIQ DIFF INDEX:")
+        print(diff_liq.index[:10])
+
+        for k in liq_legacy:
+            assert eq(liq_legacy[k], liq_batched[k]), f"LIQ {k}"
+
+        print("✅ LIQUIDITY RESPONSE: 1:1 OK")
+
+        # ======================================================
+        # 7️⃣ STRUCTURAL VOLATILITY (BOS BULL)
+        # ======================================================
+        sv_legacy_bos_bull = PriceActionStructuralVolatility(
+            event_source="bos",
+            direction="bull",
+        ).apply(df_legacy)
+
+        df_legacy = df_legacy.assign(**sv_legacy_bos_bull)
+
+        sv_legacy_bos_bear = PriceActionStructuralVolatility(
+            event_source="bos",
+            direction="bear",
+        ).apply(df_legacy)
+
+        df_legacy = df_legacy.assign(**sv_legacy_bos_bear)
+
+        ###
+
+        sv_legacy_mss_bull = PriceActionStructuralVolatility(
+            event_source="mss",
+            direction="bull",
+        ).apply(df_legacy)
+
+        df_legacy = df_legacy.assign(**sv_legacy_mss_bull)
+
+        sv_legacy_mss_bear = PriceActionStructuralVolatility(
+            event_source="mss",
+            direction="bear",
+        ).apply(df_legacy)
+
+        df_legacy = df_legacy.assign(**sv_legacy_mss_bear)
+
+
+
+
+        sv_batched_bos_bull = PriceActionStructuralVolatilityBatched(
+            event_source="bos",
+            direction="bull",
+        ).apply(
+            events={"bos_bull_event": pa_batched["bos_bull_event"]},
+            df=df,
+        )
+        sv_batched_bos_bear = PriceActionStructuralVolatilityBatched(
+            event_source="bos",
+            direction="bear",
+        ).apply(
+            events={"bos_bear_event": pa_batched["bos_bear_event"]},
+            df=df,
+        )
+        ###
+        sv_batched_mss_bull = PriceActionStructuralVolatilityBatched(
+            event_source="mss",
+            direction="bull",
+        ).apply(
+            events={"mss_bull_event": pa_batched["mss_bull_event"]},
+            df=df,
+        )
+        sv_batched_mss_bear = PriceActionStructuralVolatilityBatched(
+            event_source="mss",
+            direction="bear",
+        ).apply(
+            events={"mss_bear_event": pa_batched["mss_bear_event"]},
+            df=df,
+        )
+
+        for k in sv_legacy_bos_bull:
+            assert eq(sv_legacy_bos_bull[k], sv_batched_bos_bull[k]), f"SV {k}"
+
+        print("✅ STRUCTURAL VOLATILITY: 1:1 OK")
+
+
+
+        # ======================================================
+        # 8️⃣ TREND REGIME (FINAL)
+        # ======================================================
+        trend_legacy = PriceActionTrendRegime().apply(df_legacy)
+
+        print("LEGACY trend_regime", trend_legacy["trend_regime"].value_counts())
+        print("LEGACY trend_bias", trend_legacy["trend_bias"].value_counts())
+        print("LEGACY trend_strength", trend_legacy["trend_strength"].value_counts())
+
+        trend_batched = PriceActionTrendRegimeBatched().apply(
+            pivots={"pivot": pivots_batched["pivot"]},
+            events={
+                "bos_bull_event": pa_batched["bos_bull_event"],
+                "bos_bear_event": pa_batched["bos_bear_event"],
+                "mss_bull_event": pa_batched["mss_bull_event"],
+                "mss_bear_event": pa_batched["mss_bear_event"],
+                "bos_bull_ft_valid": ft_bos["bos_bull_ft_valid"],
+                "bos_bear_ft_valid": ft_bos["bos_bear_ft_valid"],
+                "mss_bull_ft_valid": ft_mss["mss_bull_ft_valid"],
+                "mss_bear_ft_valid": ft_mss["mss_bear_ft_valid"],
+            },
+            struct_vol={
+                "bos_bull_struct_vol": sv_batched_bos_bull["bos_bull_struct_vol"],
+                "bos_bear_struct_vol": sv_batched_bos_bear["bos_bear_struct_vol"],
+                "mss_bull_struct_vol": sv_batched_mss_bull["mss_bull_struct_vol"],
+                "mss_bear_struct_vol": sv_batched_mss_bear["mss_bear_struct_vol"],
+            },
+            df=df
+        )
+
+        diff = trend_legacy["trend_regime"].compare(
+            trend_batched["trend_regime"]
+        )
+
+        print("FIRST DIFF:")
+        print(diff.head(10))
+
+        print("DIFF INDEX:")
+        print(diff.index[:10])
+
+        for k in trend_legacy:
+            assert trend_legacy[k].fillna("NA").equals(
+                trend_batched[k].fillna("NA")
+            ), f"TREND {k}"
+
+        print("✅ TREND REGIME: 1:1 OK")
+
+        return df
 
     # =============================================================
     # ENGINE PIPELINE (PLACEHOLDER)
