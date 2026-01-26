@@ -55,28 +55,7 @@ This framework supports the **entire lifecycle** of a quantitative trading syste
 
 Each stage is implemented as a **decoupled module**, allowing independent testing and extension.
 
----
 
-## System Architecture (Conceptual)
-
-```
-Data Providers
-  ├── Historical (Dukascopy, cached)
-  └── Live (MT5)
-        ↓
-Market Structure / Feature Engine
-        ↓
-Strategy Layer (multi-timeframe)
-        ↓
-Execution Engines
-  ├── Backtesting Engine
-  ├── Dry-Run Engine
-  └── Live Trading Engine
-        ↓
-Reporting & Visualization
-```
-
----
 
 ## Core Modules
 
