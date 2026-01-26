@@ -1,16 +1,16 @@
 #Strategies/Poi_Sessions.py
+import time
 
 import numpy as np
 import pandas as pd
 import talib.abstract as ta
 
-
+from TechnicalAnalysis.MarketStructure.engine import MarketStructureEngine
 from core.strategy.BaseStrategy import BaseStrategy
 from TechnicalAnalysis.Indicators import indicators as qtpylib
 from Strategies.utils.decorators import informative
 from TechnicalAnalysis.Indicators.indicators import candlestick_confirmation, keltner_channel
 from TechnicalAnalysis.PointOfInterestSMC.core import SmartMoneyConcepts
-from TechnicalAnalysis.PriceAction_Fibbonaci.core import IntradayMarketStructure
 from TechnicalAnalysis.Sessions.core import Sessions
 from time import perf_counter
 
@@ -22,7 +22,7 @@ def log_t(start, label):
     print(f"{label:<35} {(perf_counter() - start):.3f}s")
 
 
-class PoiSessions(BaseStrategy):
+class Poisessions(BaseStrategy):
 
     def __init__(self, df, symbol, startup_candle_count, provider):
         super().__init__(
@@ -68,14 +68,25 @@ class PoiSessions(BaseStrategy):
         #Sessions().apply(df)
 
         # --- price action HTF
-        IntradayMarketStructure().apply(df)
+        df = MarketStructureEngine.apply(
+            df,
+            features=[
+                "pivots",
+                "relations",
+                "price_action",
+                "follow_through",
+                "liquidity",
+                "structural_vol",
+                "trend_regime",
+            ]
+        )
 
 
         # 🔥 SMC: TYLKO DETEKCJA STREF
-        self.htf_zones = SmartMoneyConcepts().detect_zones(
-            df,
-            tf="M30"
-        )
+        #self.htf_zones = SmartMoneyConcepts().detect_zones(
+        #    df,
+        #    tf="M30"
+        #)
 
         df = Sessions.calculate_previous_ranges(df)
         df = Sessions.calculate_sessions_ranges(df)
@@ -114,12 +125,12 @@ class PoiSessions(BaseStrategy):
         #df["kc_middle"] = kc["mid"]
         #df["kc_lower"] = kc["lower"]
 
-        typical = (df['high'] + df['low'] + df['close']) / 3
+        #typical = (df['high'] + df['low'] + df['close']) / 3
 
-        bb = qtpylib.bollinger_bands(typical, 30, 2.5)
-        df["bb_upper"] = bb["upper"]
-        df["bb_middle"] = bb["mid"]
-        df["bb_lower"] = bb["lower"]
+        #bb = qtpylib.bollinger_bands(typical, 30, 2.5)
+        #df["bb_upper"] = bb["upper"]
+        #df["bb_middle"] = bb["mid"]
+        #df["bb_lower"] = bb["lower"]
 
         #vwap = qtpylib.vwap_bands(df)
 
@@ -172,8 +183,31 @@ class PoiSessions(BaseStrategy):
         # 3️⃣ PRICE ACTION (M5)
         # =====================================================
         t = perf_counter()
-        IntradayMarketStructure().apply(df)
-        #log_t(t, "IntradayMarketStructure")
+
+
+
+        t0 = time.perf_counter()
+        df = MarketStructureEngine.apply(
+            df,
+            features=[
+                "pivots",
+                "relations",
+                "price_action",
+                "follow_through",
+                "liquidity",
+                "structural_vol",
+                "trend_regime",
+            ]
+        )
+        t1 = time.perf_counter()
+
+
+        print(list(df.columns))
+
+        print(f"LEGACY: {t1 - t0:.3f}s")
+
+        #print(list(df.columns))
+        log_t(t, "IntradayMarketStructure")
 
         df = df.copy()
         # =====================================================
@@ -190,9 +224,6 @@ class PoiSessions(BaseStrategy):
         #smc.aggregate_active_zones(df)
         #log_t(t, "SMC reactions + aggregate")
 
-        df = df.copy()
-
-
         # =====================================================
         # 8️⃣ REACTION CONTEXT
         # =====================================================
@@ -203,16 +234,18 @@ class PoiSessions(BaseStrategy):
         # ==================================================
         # 3️⃣ REACTION
         # ==================================================
-        df = self.calculate_reaction(
-            df,
-            context_dir_col="pa_event_dir",
-            reaction_window=5,
-        )
+        #df = self.calculate_reaction(
+        #    df,
+        #    context_dir_col="pa_event_dir",
+        #    reaction_window=5,
+        #)
+
+
 
 
         atr_threshold = 1
 
-        LEVELS = [
+        """LEVELS = [
             # ===== LONG =====
             ("near_pdl_M30", "PDL_M30", "long"),
             ("near_pwl_M30", "PWL_M30", "long"),
@@ -271,7 +304,7 @@ class PoiSessions(BaseStrategy):
                 df["near_1272_bear_M30"] |
                 df["near_1618_bear"] |
                 df["near_1618_bear_M30"]
-        )
+        )"""
 
         low_conf = (df[['open', 'close']].min(axis=1) - df['low'].rolling(15).min() < df['atr'] * 3)
         df['low_conf'] = low_conf
@@ -288,6 +321,7 @@ class PoiSessions(BaseStrategy):
 
         df = self.df.copy()
 
+        """
         # ==================================================
         # 0️⃣ INIT
         # ==================================================
@@ -527,18 +561,15 @@ class PoiSessions(BaseStrategy):
                 tp2=3.0,
             ),
             axis=1,
-        )
+        )"""
 
-        print(
-            df.loc[
-                df['signal_entry'].notna(),
-                ['signal_entry', 'levels', ]
-            ]
-        )
+        df['signal_entry'] = None
+        df['levels'] = None
+
+
 
         self.df = df
 
-        print(df.loc[df['signal_entry'].notna()])
         return df
 
     def populate_exit_trend(self):
@@ -546,6 +577,7 @@ class PoiSessions(BaseStrategy):
         df = self.df
 
         df['signal_exit'] = None
+        df['custom_stop_loss'] = None
 
     def bool_series(self):
         return [
@@ -557,28 +589,28 @@ class PoiSessions(BaseStrategy):
 
     def get_extra_values_to_plot(self):
         return [
-            ("bb_upper", self.df["bb_upper"], "blue", "dot"),
-            #("london_low", self.sessions.df["london_low"], "blue", "dot"),
-            ("bb_lower", self.df["bb_lower"], "purple", "dot"),
-            #("asia_low", self.sessions.df["asia_low"], "purple", "dot"),
+            ("EQH_level", self.df["EQH_level"], "blue", "dot"),
+            ("EQH_level_M30", self.df["EQH_level_M30"], "green", "longdashdot"),
+            ("EQL_level", self.df["EQL_level"], "purple", "dot"),
+            ("EQL_level_M30", self.df["EQL_level_M30"], "red", "longdashdot"),
             #("ny_high", self.sessions.df["ny_high"], "orange", "dash"),
             #("ny_low", self.sessions.df["ny_low"], "orange", "dash"),
 
-            #("vwap_upper_1", self.df['vwap_upper_1'], "green"),
-            #("vwap_lower_1", self.df['vwap_lower_1'], "red"),
+            #("HH", self.df['HH'], "green"),
+            #("LL", self.df['LL'], "red"),
 
-            #("vwap_upper_2", self.df['vwap_upper_2'], "green"),
-            #("vwap_lower_2", self.df['vwap_lower_2'], "red"),
+            #("LH", self.df['LH'], "red"),
+            #("HL", self.df['HL'], "green"),
 
-            ("bos_up", self.df['bos_bull_level'], "green"),
-            ("bos_bear", self.df['bos_bear_level'], "red"),
-            ("mss_bull", self.df['mss_bull_level'], "purple"),
-            ("mss_bear", self.df['mss_bear_level'], "yellow"),
+            #("bos_up", self.df['bos_bull_level'], "green"),
+            #("bos_bear", self.df['bos_bear_level'], "red"),
+            #("mss_bull", self.df['mss_bull_level'], "purple"),
+            #("mss_bear", self.df['mss_bear_level'], "yellow"),
 
-            ("bos_up_M30", self.df['bos_bull_level_M30'], "green"),
-            ("bos_bear_M30", self.df['bos_bear_level_M30'], "red"),
-            ("mss_bull_M30", self.df['mss_bull_level_M30'], "purple"),
-            ("mss_bear_M30", self.df['mss_bear_level_M30'], "yellow"),
+            #("bos_up_M30", self.df['bos_bull_level_M30'], "green"),
+            #("bos_bear_M30", self.df['bos_bear_level_M30'], "red"),
+            #("mss_bull_M30", self.df['mss_bull_level_M30'], "purple"),
+            #("mss_bear_M30", self.df['mss_bear_level_M30'], "yellow"),
 
             #("pivot_price", self.price_action.df["pivot_price"], "purple"),
             #("PDL", self.sessions.df["PDL"], "blue"),
@@ -606,18 +638,18 @@ class PoiSessions(BaseStrategy):
     def get_bearish_zones(self):
         z = self._zones_view()
 
-        """return [
-            (
-                "Bearish OB M30",
-                z.select(direction="bearish", zone_type="ob", tf="M30"),
-                "rgba(255, 160, 122, 0.7)"
-            ),
-            (
-                "Bearish Breaker M30",
-                z.select(direction="bearish", zone_type="breaker", tf="M30"),
-                "rgba(169, 169, 169, 0.7)"
-            ),
-        ]"""
+        return [
+            #(
+            #    "Bearish OB M30",
+            #    z.select(direction="bearish", zone_type="ob", tf="M30"),
+            #    "rgba(255, 160, 122, 0.7)"
+            #),
+            #(
+            #    "Bearish Breaker M30",
+            #    z.select(direction="bearish", zone_type="breaker", tf="M30"),
+            #    "rgba(169, 169, 169, 0.7)"
+            #),
+        ]
 
     def compute_sl(
             self,

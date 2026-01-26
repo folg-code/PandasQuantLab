@@ -20,7 +20,7 @@ def log_t(start, label):
     print(f"{label:<35} {(perf_counter() - start):.3f}s")
 
 
-class Poisessions(BaseStrategy):
+class Boisessions(BaseStrategy):
 
     def __init__(self, df, symbol, startup_candle_count, provider):
         super().__init__(
