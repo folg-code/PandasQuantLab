@@ -11,6 +11,7 @@ from config.backtest import INITIAL_BALANCE
 from config.live import MAX_RISK_PER_TRADE
 from core.backtesting.backtester import INSTRUMENT_META
 from core.backtesting.reporting.config.report_config import ReportConfig
+from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
 from core.domain.risk import position_sizer_fast
 from core.strategy.trade_plan import (
     TradePlan,
@@ -327,12 +328,12 @@ class BaseStrategy:
     def populate_exit_trend(self):
         raise NotImplementedError
 
-    def build_report_config(self) -> ReportConfig:
-        """
-        Default: no metrics, no contexts.
-        Strategy overrides this method.
-        """
-        return ReportConfig()
+    def build_report_config(self):
+        return (
+            ReportConfig()
+            .add_metric(ExpectancyMetric())
+            .add_metric(MaxDrawdownMetric())
+        )
 
     def get_bullish_zones(self):
         return []
