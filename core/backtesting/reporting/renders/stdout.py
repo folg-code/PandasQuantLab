@@ -158,6 +158,9 @@ class StdoutRenderer:
         if name == "Performance by Entry Tag":
             self._render_entry_tag_table(payload)
 
+        elif name == "Conditional Entry Tag Performance":
+            self._render_conditional_tables(payload)
+
         elif name == "Exit Logic Diagnostics":
             self._render_entry_tag_table(payload)
 
