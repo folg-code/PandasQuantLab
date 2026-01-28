@@ -2,6 +2,7 @@ import pandas as pd
 import talib.abstract as ta
 
 from Strategies.utils.decorators import informative
+from core.backtesting.reporting.core.context import ContextSpec
 from core.strategy.BaseStrategy import BaseStrategy
 from TechnicalAnalysis.MarketStructure.engine import MarketStructureEngine
 
@@ -183,6 +184,24 @@ class Samplestrategy(BaseStrategy):
 
         self.df = df
         return df
+
+    def build_report_config(self):
+        return (
+            super()
+            .build_report_config()
+            .add_context(
+                ContextSpec(
+                    name="bos_bear_struct_vol",
+                    column="bos_bear_struct_vol"
+                )
+            )
+            .add_context(
+                ContextSpec(
+                    name="trend_regime",
+                    column="trend_regime"
+                )
+            )
+        )
 
     def populate_exit_trend(self):
         self.df["signal_exit"] = None

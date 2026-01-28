@@ -347,19 +347,19 @@ class BacktestRunner:
         # ============================
         # REPORT
         # ============================
-        t = perf_counter()
-        self.run_report()
-        print(f"⏱ run_report           {perf_counter() - t:.3f}s")
+        #t = perf_counter()
+        #self.run_report()
+        #print(f"⏱ run_report           {perf_counter() - t:.3f}s")
 
         print(f"🏁 Full run finished    TOTAL {perf_counter() - t_start:.3f}s")
         # ============================
         # FINAL PLOT
         # ============================
-        t = perf_counter()
-        self.plot_results()
-        print(f"⏱ plot_results         {perf_counter() - t:.3f}s")
+       # t = perf_counter()
+       # self.plot_results()
+        #print(f"⏱ plot_results         {perf_counter() - t:.3f}s")
 
         # ============================
         # TOTAL
         # ============================
-        print(f"🏁 Full run finished    TOTAL {perf_counter() - t_start:.3f}s")
+        #print(f"🏁 Full run finished    TOTAL {perf_counter() - t_start:.3f}s")
