@@ -102,8 +102,11 @@ class StdoutRenderer:
         }:
             self._render_conditional_tables(payload)
 
+        elif name == "Backtest Configuration & Assumptions":
+            self._render_kv_table(payload)
+
         else:
-            # TEMP fallback – will be removed in next commits
+            # temporary fallback for sections not yet migrated
             self.console.print(Pretty(payload, expand_all=True))
 
     # ==================================================
@@ -136,8 +139,28 @@ class StdoutRenderer:
             self.console.print(f"[italic]Sorted by: {alias}[/italic]")
 
     # ==================================================
-    # OTHER RENDERERS (UNCHANGED LOGIC)
+    # OTHER RENDERERS
     # ==================================================
+
+    def _render_kv_table(self, payload: dict):
+        """
+        Render nested dict as a key-value table:
+        Section | Parameter | Value
+        """
+        table = Table(box=None, show_header=True)
+        table.add_column("Section", style="bold")
+        table.add_column("Parameter")
+        table.add_column("Value", justify="right")
+
+        for section, params in payload.items():
+            for key, value in params.items():
+                table.add_row(
+                    section,
+                    key,
+                    self._fmt(value)
+                )
+
+        self.console.print(table)
 
     def _render_tail_risk_section(self, payload: dict):
         rows = []
