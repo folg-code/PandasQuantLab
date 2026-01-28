@@ -10,3 +10,5 @@ class ReportSection(ABC):
     @abstractmethod
     def compute(self, ctx: ReportContext) -> dict:
         ...
+
+
