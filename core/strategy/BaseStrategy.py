@@ -10,6 +10,7 @@ from plotly.graph_objs import volume
 from config.backtest import INITIAL_BALANCE
 from config.live import MAX_RISK_PER_TRADE
 from core.backtesting.backtester import INSTRUMENT_META
+from core.backtesting.reporting.config.report_config import ReportConfig
 from core.domain.risk import position_sizer_fast
 from core.strategy.trade_plan import (
     TradePlan,
@@ -326,6 +327,13 @@ class BaseStrategy:
     def populate_exit_trend(self):
         raise NotImplementedError
 
+    def build_report_config(self) -> ReportConfig:
+        """
+        Default: no metrics, no contexts.
+        Strategy overrides this method.
+        """
+        return ReportConfig()
+
     def get_bullish_zones(self):
         return []
     def get_bearish_zones(self):
@@ -346,6 +354,7 @@ class BaseStrategy:
         run_step("📈 🧠 run_strategy | populate_entry_trend", self.populate_entry_trend)
         run_step("📈 🧠 run_strategy | populate_exit_trend", self.populate_exit_trend)
 
+        self.build_report_config()
         self.get_bullish_zones()
         self.get_bearish_zones()
         self.get_extra_values_to_plot()
