@@ -15,6 +15,22 @@ class Samplestrategy(BaseStrategy):
     - BOS + follow-through continuation
     """
 
+    class Samplestrategy(BaseStrategy):
+
+        def __init__(
+                self,
+                df,
+                symbol,
+                startup_candle_count,
+                provider,
+        ):
+            super().__init__(
+                df=df,
+                symbol=symbol,
+                startup_candle_count=startup_candle_count,
+                provider=provider,
+            )
+
     @informative("M30")
     def populate_indicators_M30(self, df):
 
@@ -192,13 +208,15 @@ class Samplestrategy(BaseStrategy):
             .add_context(
                 ContextSpec(
                     name="bos_bear_struct_vol",
-                    column="bos_bear_struct_vol"
+                    column="bos_bear_struct_vol",
+                    source="entry_candle"
                 )
             )
             .add_context(
                 ContextSpec(
                     name="trend_regime",
-                    column="trend_regime"
+                    column="trend_regime",
+                    source="entry_candle"
                 )
             )
         )

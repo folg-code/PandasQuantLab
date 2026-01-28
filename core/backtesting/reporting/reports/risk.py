@@ -9,24 +9,24 @@ class RiskMonitoringReport(BaseReport):
         self.metrics = metrics
         self.contexts = contexts
 
-    def run(self):
-        # GLOBAL
-        global_stats = {
+    def compute(self) -> dict:
+        report = {
+            "global": {},
+            "by_context": {}
+        }
+
+        # 1️⃣ GLOBAL METRICS
+        report["global"] = {
             m.name: m.compute(self.df)
             for m in self.metrics
         }
 
-        print("\n=== GLOBAL RISK METRICS ===")
-        for k, v in global_stats.items():
-            print(f"{k:20s}: {v}")
-
-        # CONTEXTUAL
+        # 2️⃣ CONTEXTUAL METRICS
         for ctx in self.contexts:
             agg = ContextualAggregator(ctx)
-            stats = agg.aggregate(self.df, self.metrics)
+            report["by_context"][ctx.name] = agg.aggregate(
+                self.df,
+                self.metrics
+            )
 
-            print(f"\n=== RISK BY {ctx.name.upper()} ===")
-            for key, values in stats.items():
-                print(f"\n[{key}]")
-                for m, val in values.items():
-                    print(f"  {m:18s}: {val}")
+        return report

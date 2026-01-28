@@ -94,6 +94,7 @@ class BaseStrategy:
 
         self.strategy_config = strategy_config or {}
         self.validate_strategy_config()
+        self.report_config = self.build_report_config()
 
     # ==================================================
     # Strategy config validation

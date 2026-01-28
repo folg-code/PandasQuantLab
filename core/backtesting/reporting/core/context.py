@@ -5,4 +5,5 @@ from typing import Optional, Set
 class ContextSpec:
     name: str
     column: str
+    source: str
     allowed_values: Optional[Set] = None

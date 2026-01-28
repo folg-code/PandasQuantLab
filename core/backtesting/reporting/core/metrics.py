@@ -25,6 +25,5 @@ class MaxDrawdownMetric(BaseMetric):
 
     def compute(self, df: pd.DataFrame):
 
-        print(df)
         eq = df["equity"]
         return (eq.cummax() - eq).max()
