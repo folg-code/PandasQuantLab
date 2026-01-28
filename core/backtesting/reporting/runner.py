@@ -2,6 +2,7 @@ from core.backtesting.reporting.core.context import ReportContext
 from core.backtesting.reporting.core.equity import EquityPreparer
 from core.backtesting.reporting.core.sections.backtest_config import BacktestConfigSection
 from core.backtesting.reporting.core.sections.core_performance import CorePerformanceSection
+from core.backtesting.reporting.core.sections.tail_risk import TailRiskSection
 from core.backtesting.reporting.core.sections.trade_distribution import TradeDistributionSection
 from core.backtesting.reporting.renders.stdout import StdoutRenderer
 from core.backtesting.reporting.reports.risk import RiskReport
@@ -55,6 +56,7 @@ class ReportRunner:
                 BacktestConfigSection(),
                 CorePerformanceSection(),
                 TradeDistributionSection(),
+                TailRiskSection(),
             ]
         )
 
