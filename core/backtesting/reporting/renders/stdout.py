@@ -105,6 +105,9 @@ class StdoutRenderer:
         elif name == "Backtest Configuration & Assumptions":
             self._render_kv_table(payload)
 
+        elif name == "Core Performance Metrics":
+            self._render_metric_table(payload)
+
         else:
             # temporary fallback for sections not yet migrated
             self.console.print(Pretty(payload, expand_all=True))
@@ -141,6 +144,24 @@ class StdoutRenderer:
     # ==================================================
     # OTHER RENDERERS
     # ==================================================
+
+    def _render_metric_table(self, payload: dict):
+        """
+        Render flat metric dict as:
+        Metric | Value
+        """
+        table = Table(box=None, show_header=True)
+        table.add_column("Metric")
+        table.add_column("Value", justify="right")
+
+        for metric, value in payload.items():
+            is_pct = "%" in metric
+            table.add_row(
+                metric,
+                self._fmt(value, pct=is_pct)
+            )
+
+        self.console.print(table)
 
     def _render_kv_table(self, payload: dict):
         """

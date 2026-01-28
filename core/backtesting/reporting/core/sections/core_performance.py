@@ -9,84 +9,70 @@ from core.backtesting.reporting.core.context import ReportContext
 
 class CorePerformanceSection(ReportSection):
     """
-    Section 2.2:
+    Section 2:
     Core Performance Metrics
     """
 
     name = "Core Performance Metrics"
 
-    def compute(self, ctx: ReportContext) -> Dict[str, Any]:
+    def compute(self, ctx: ReportContext) -> dict:
+
         trades = ctx.trades
-        equity = ctx.equity
-        drawdown = ctx.drawdown
-        cfg = ctx.config
+        equity = trades["equity"]
 
-        if trades.empty:
-            return {"error": "No trades to compute performance metrics"}
-
-        initial_balance = cfg.INITIAL_BALANCE
+        initial_balance = ctx.initial_balance
         final_balance = equity.iloc[-1]
 
+        start_time = pd.to_datetime(trades["entry_time"].iloc[0], utc=True)
+        end_time = pd.to_datetime(trades["exit_time"].iloc[-1], utc=True)
+
         total_return = (final_balance - initial_balance) / initial_balance
-        max_dd_abs = drawdown.max()
-        max_dd_pct = max_dd_abs / initial_balance if initial_balance else np.nan
-
-        expectancy = trades["pnl_usd"].mean()
-
-        profit_factor = self._profit_factor(trades)
 
         cagr = self._cagr(
             initial_balance=initial_balance,
             final_balance=final_balance,
-            start_time=trades["entry_time"].min(),
-            end_time=trades["exit_time"].max(),
+            start_time=start_time,
+            end_time=end_time,
         )
 
+        pnl = trades["pnl_usd"]
+        wins = pnl[pnl > 0]
+        losses = pnl[pnl < 0]
+
+        profit_factor = (
+            wins.sum() / abs(losses.sum())
+            if not losses.empty else None
+        )
+
+        max_dd_abs = trades["drawdown"].min()
+        max_dd_pct = max_dd_abs / initial_balance if initial_balance else None
+
+        expectancy = pnl.mean()
+
         return {
-            "Total return": total_return,
-            "CAGR": cagr,
+            "Total return (%)": total_return,
+            "CAGR (%)": cagr,
             "Profit factor": profit_factor,
             "Expectancy (USD)": expectancy,
-            "Max drawdown ($)": max_dd_abs,
-            "Max drawdown (%)": max_dd_pct,
+            "Max drawdown ($)": abs(max_dd_abs),
+            "Max drawdown (%)": abs(max_dd_pct),
         }
 
     # ==================================================
     # Helpers
     # ==================================================
 
-    def _profit_factor(self, trades):
-        wins = trades.loc[trades["pnl_usd"] > 0, "pnl_usd"].sum()
-        losses = trades.loc[trades["pnl_usd"] < 0, "pnl_usd"].sum()
-
-        if losses == 0:
-            return np.inf
-
-        return wins / abs(losses)
-
-    def _cagr(self, initial_balance, final_balance, start_time, end_time):
-
-        if start_time is None or end_time is None:
-            return None
-
-        # --------------------------------------------------
-        # FORCE UTC (tz-aware)
-        # --------------------------------------------------
-        if start_time.tzinfo is None:
-            start_time = start_time.tz_localize("UTC")
-        else:
-            start_time = start_time.tz_convert("UTC")
-
-        if end_time.tzinfo is None:
-            end_time = end_time.tz_localize("UTC")
-        else:
-            end_time = end_time.tz_convert("UTC")
+    def _cagr(
+        self,
+        initial_balance: float,
+        final_balance: float,
+        start_time: pd.Timestamp,
+        end_time: pd.Timestamp,
+    ) -> float | None:
 
         days = (end_time - start_time).days
-        if days <= 0:
+        if days <= 0 or final_balance <= 0:
             return None
 
-        if initial_balance <= 0 or final_balance <= 0:
-            return None
-
-        return (final_balance / initial_balance) ** (365 / days) - 1
+        years = days / 365.0
+        return (final_balance / initial_balance) ** (1 / years) - 1
