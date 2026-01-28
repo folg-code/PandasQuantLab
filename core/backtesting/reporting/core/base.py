@@ -20,5 +20,9 @@ class BaseReport(ABC):
         self.df = df
 
     @abstractmethod
-    def run(self):
+    def compute(self) -> dict:
+        """
+        Returns pure report data.
+        Must be side-effect free.
+        """
         pass
