@@ -31,28 +31,64 @@ class BacktestRunner:
 
     def load_data(self):
 
-        backend = create_backtest_backend(self.config.BACKTEST_DATA_BACKEND)
+        t_start = perf_counter()
+        print("⏱️ load_data | start")
 
+        # -------------------------------------------------
+        # BACKEND
+        # -------------------------------------------------
+        t0 = perf_counter()
+        backend = create_backtest_backend(self.config.BACKTEST_DATA_BACKEND)
+        print(f"⏱️ load_data | create_backend        {perf_counter() - t0:8.3f}s")
+
+        # -------------------------------------------------
+        # TIME RANGE
+        # -------------------------------------------------
+        t0 = perf_counter()
         start = pd.Timestamp(self.config.TIMERANGE["start"], tz="UTC")
         end = pd.Timestamp(self.config.TIMERANGE["end"], tz="UTC")
+        print(f"⏱️ load_data | build_timerange       {perf_counter() - t0:8.3f}s")
 
+        # -------------------------------------------------
+        # PROVIDER
+        # -------------------------------------------------
+        t0 = perf_counter()
         self.provider = DefaultOhlcvDataProvider(
             backend=backend,
             cache=MarketDataCache(self.config.MARKET_DATA_PATH),
             backtest_start=start,
             backtest_end=end,
         )
+        print(f"⏱️ load_data | init_provider         {perf_counter() - t0:8.3f}s")
 
+        # -------------------------------------------------
+        # LOAD SYMBOLS
+        # -------------------------------------------------
         all_data = {}
 
         for symbol in self.config.SYMBOLS:
+            t_sym = perf_counter()
+
             df = self.provider.get_ohlcv(
                 symbol=symbol,
                 timeframe=self.config.TIMEFRAME,
                 start=start,
                 end=end,
             )
+
+            dt = perf_counter() - t_sym
+            print(
+                f"⏱️ load_data | get_ohlcv {symbol:<10} "
+                f"{dt:8.3f}s  ({len(df)} rows)"
+            )
+
             all_data[symbol] = df
+
+        # -------------------------------------------------
+        # TOTAL
+        # -------------------------------------------------
+        total = perf_counter() - t_start
+        print(f"⏱️ load_data | TOTAL                  {total:8.3f}s")
 
         return all_data
 
@@ -61,35 +97,99 @@ class BacktestRunner:
     # ==================================================
     def run_strategies_parallel(self, all_data: dict):
 
+        t_start = perf_counter()
+        n_symbols = len(all_data)
+
+        print(f"📈 STRATEGIES | start ({n_symbols} symbols)")
+
+
         all_signals = []
         self.strategies = []
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
-            futures = [
-                executor.submit(
-                    run_strategy_single,
-                    symbol,
-                    df,
-                    self.provider,
-                    load_strategy_class(self.config.STRATEGY_CLASS),
-                    self.config.STARTUP_CANDLE_COUNT,
+        # =================================================
+        # 🔥 OPCJA A — JEDEN SYMBOL → BEZ MULTIPROCESSING
+        # =================================================
+        if n_symbols == 1:
+            symbol, df = next(iter(all_data.items()))
+
+            print("📈 STRATEGIES | single-symbol mode (no multiprocessing)"
+                    f"{perf_counter() - t_start:8.3f}s ")
+
+            t0 = perf_counter()
+            df_signals, strategy = run_strategy_single(
+                symbol,
+                df,
+                self.provider,
+                load_strategy_class(self.config.STRATEGY_CLASS),
+                self.config.STARTUP_CANDLE_COUNT,
+            )
+            print(
+                f"📈 STRATEGIES | finished job         "
+                f"{perf_counter() - t0:8.3f}s  ({symbol})"
+            )
+
+            all_signals.append(df_signals)
+            self.strategies.append(strategy)
+
+        # =================================================
+        # 🚀 MULTI-SYMBOL → MULTIPROCESSING
+        # =================================================
+        else:
+            t_submit = perf_counter()
+
+            with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+                futures = [
+                    executor.submit(
+                        run_strategy_single,
+                        symbol,
+                        df,
+                        self.provider,
+                        load_strategy_class(self.config.STRATEGY_CLASS),
+                        self.config.STARTUP_CANDLE_COUNT,
+                    )
+                    for symbol, df in all_data.items()
+                ]
+
+                print(
+                    f"📈 STRATEGIES | submit_jobs           "
+                    f"{perf_counter() - t_submit:8.3f}s  "
+                    f"({len(futures)} symbols)"
                 )
-                for symbol, df in all_data.items()
-            ]
 
-            for future in as_completed(futures):
-                df_signals, strategy = future.result()
-                all_signals.append(df_signals)
-                self.strategies.append(strategy)
+                for future in as_completed(futures):
+                    df_signals, strategy = future.result()
 
+                    print(
+                        f"📈 STRATEGIES | job collected         "
+                        f"(symbol={strategy.symbol})"
+                    )
+
+                    all_signals.append(df_signals)
+                    self.strategies.append(strategy)
+
+        # =================================================
+        # MERGE RESULTS
+        # =================================================
         if not all_signals:
             raise RuntimeError("Brak sygnałów ze strategii")
 
+        t_merge = perf_counter()
         self.signals_df = (
             pd.concat(all_signals)
-              .sort_values(by=["time", "symbol"])
-              .reset_index(drop=True)
+            .sort_values(by=["time", "symbol"])
+            .reset_index(drop=True)
         )
+
+        print(
+            f"📈 STRATEGIES | merge_results         "
+            f"{perf_counter() - t_merge:8.3f}s"
+        )
+
+        # =================================================
+        # TOTAL
+        # =================================================
+        total = perf_counter() - t_start
+        print(f"📈 STRATEGIES | TOTAL                 {total:8.3f}s")
 
         return self.signals_df
 
@@ -215,16 +315,12 @@ class BacktestRunner:
         # ============================
         # LOAD DATA
         # ============================
-        t = perf_counter()
         all_data = self.load_data()
-        print(f"⏱ load_data            {perf_counter() - t:.3f}s")
 
-        # ============================
+        # ============================📈🎯
         # STRATEGIES (PARALLEL)
         # ============================
-        t = perf_counter()
         self.run_strategies_parallel(all_data)
-        print(f"⏱ run_strategies       {perf_counter() - t:.3f}s")
 
         # ============================
         # PLOT ONLY
@@ -240,8 +336,9 @@ class BacktestRunner:
         # BACKTEST
         # ============================
         t = perf_counter()
+        print(f"⏱ START BACKTEST  ")
         self.run_backtests()
-        print(f"⏱ run_backtests        {perf_counter() - t:.3f}s")
+        print(f"⏱ BACKTEST CALCULATION TIME        {perf_counter() - t:.3f}s")
 
         if self.config.BACKTEST_MODE == "backtest":
             print(f"🧪 Backtest finished    TOTAL {perf_counter() - t_start:.3f}s")
@@ -254,6 +351,7 @@ class BacktestRunner:
         self.run_report()
         print(f"⏱ run_report           {perf_counter() - t:.3f}s")
 
+        print(f"🏁 Full run finished    TOTAL {perf_counter() - t_start:.3f}s")
         # ============================
         # FINAL PLOT
         # ============================

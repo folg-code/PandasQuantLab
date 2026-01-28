@@ -3,6 +3,7 @@ import time
 from collections import defaultdict
 from typing import Dict, Any
 
+from time import perf_counter
 import pandas as pd
 
 from core.strategy.trade_plan import (
@@ -199,18 +200,39 @@ class BaseStrategy:
         return sorted(tfs)
 
     def _populate_informatives(self):
+
+        print("📈 🧠 run_strategy | populate_informatives start ")
         if self.provider is None:
             return
 
         for tf, methods in self.informatives.items():
+
+            # -------------------------------------------------
+            # FETCH INFORMATIVE DATA
+            # -------------------------------------------------
+            t_fetch = perf_counter()
             df_tf = self.provider.get_informative_df(
                 symbol=self.symbol,
                 timeframe=tf,
                 startup_candle_count=self.startup_candle_count,
             )
+            fetch_time = perf_counter() - t_fetch
 
+            print(
+                f"📈 🧠 run_strategy | populate_informatives | fetch {tf:<5} "
+                f"{fetch_time:8.3f}s  ({len(df_tf)} rows)"
+            )
+
+            # -------------------------------------------------
+            # APPLY METHODS
+            # -------------------------------------------------
             for method in methods:
+                t_method = perf_counter()
                 df_tf = method(df_tf)
+                print(
+                    f"📈 🧠 run_strategy | populate_informatives | method {method.__name__:<20} "
+                    f"{perf_counter() - t_method:8.3f}s  ({tf})"
+                )
 
             self._informative_results[tf] = df_tf
 
@@ -264,18 +286,19 @@ class BaseStrategy:
     # ==================================================
 
     def run(self):
-        self._run_step("populate_informatives", self._populate_informatives)
-        self._run_step("merge_informatives", self._merge_informatives)
-        self._run_step("populate_indicators", self.populate_indicators)
-        self._run_step("populate_entry_trend", self.populate_entry_trend)
-        self._run_step("populate_exit_trend", self.populate_exit_trend)
+        self._run_step("📈 🧠 run_strategy | populate_informatives TOTAL", self._populate_informatives)
+        self._run_step("📈 🧠 run_strategy | merge_informatives", self._merge_informatives)
+        self._run_step("📈 🧠 run_strategy | populate_indicators", self.populate_indicators)
+        self._run_step("📈 🧠 run_strategy | populate_entry_trend", self.populate_entry_trend)
+        self._run_step("📈 🧠 run_strategy | populate_exit_trend", self.populate_exit_trend)
 
         self.get_bullish_zones()
         self.get_bearish_zones()
         self.get_extra_values_to_plot()
         self.bool_series()
 
-        self._finalize()
+        self._run_step("📈 🧠 run_strategy | _finalize", self._finalize)
+
         return self.df_backtest
 
     # ==================================================
