@@ -148,6 +148,29 @@ class StdoutRenderer:
     # OTHER RENDERERS
     # ==================================================
 
+    def _render_summary_table(self, summary: dict):
+
+        if not summary:
+            return
+
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            box=None,
+            show_lines=False,
+        )
+
+        # kolumny = klucze
+        for col in summary.keys():
+            table.add_column(col, justify="right", no_wrap=True)
+
+        # jeden wiersz
+        table.add_row(
+            *[self._fmt(v) for v in summary.values()]
+        )
+
+        self.console.print(table)
+
     def _render_trade_distribution_section(self, payload: dict):
 
         for title, block in payload.items():
@@ -236,25 +259,112 @@ class StdoutRenderer:
         self._render_generic_table(rows)
 
     def _render_capital_exposure_section(self, payload: dict):
+
+        # ==========================
+        # SUMMARY TABLE
+        # ==========================
         summary = payload.get("Summary", {})
         if summary:
             self.console.print("\n[bold]Summary[/bold]")
-            for k, v in summary.items():
-                self.console.print(f"{k}: {self._fmt(v)}")
+            self._render_summary_table(summary)
 
+        # ---- visual spacing ----
+        self.console.print()
+
+        # ==========================
+        # OVERTRADING TABLE
+        # ==========================
         over = payload.get("Overtrading diagnostics")
-        if over:
-            self._render_generic_table(over.get("rows", []))
+        if not over:
+            return
+
+        rows = over.get("rows", [])
+        if not rows:
+            return
+
+        self.console.print("[bold]Overtrading diagnostics[/bold]")
+
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            box=None,
+            show_lines=False
+        )
+
+        raw_columns = list(rows[0].keys())
+        columns = [
+            TAG_TABLE_COLUMN_ALIASES.get(col, col)
+            for col in raw_columns
+        ]
+
+        for col in columns:
+            table.add_column(col, justify="right", no_wrap=True)
+
+        for row in rows:
+            table.add_row(
+                *[self._fmt(row[col]) for col in raw_columns]
+            )
+
+        self.console.print(table)
+
+        sorted_by = over.get("sorted_by")
+        if sorted_by:
+            alias = TAG_TABLE_COLUMN_ALIASES.get(sorted_by, sorted_by)
+            self.console.print(f"[italic]Sorted by: {alias}[/italic]")
 
     def _render_drawdown_section(self, payload: dict):
+
+        # ==========================
+        # SUMMARY TABLE
+        # ==========================
         summary = payload.get("Summary", {})
         if summary:
             self.console.print("\n[bold]Summary[/bold]")
-            for k, v in summary.items():
-                self.console.print(f"{k}: {self._fmt(v)}")
+            self._render_summary_table(summary)
 
-        failure = payload.get("Failure modes", {})
-        self._render_generic_table(failure.get("rows", []))
+        # ---- visual spacing ----
+        self.console.print()
+
+        # ==========================
+        # FAILURE MODES TABLE
+        # ==========================
+        failure = payload.get("Failure modes")
+        if not failure:
+            return
+
+        rows = failure.get("rows", [])
+        if not rows:
+            return
+
+        self.console.print("[bold]Failure modes[/bold]")
+
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            box=None,
+            show_lines=False
+        )
+
+        raw_columns = list(rows[0].keys())
+        columns = [
+            TAG_TABLE_COLUMN_ALIASES.get(col, col)
+            for col in raw_columns
+        ]
+
+        for col in columns:
+            table.add_column(col, justify="right", no_wrap=True)
+
+        for row in rows:
+            table.add_row(
+                *[self._fmt(row[col]) for col in raw_columns]
+            )
+
+        self.console.print(table)
+
+        sorted_by = failure.get("sorted_by")
+        if sorted_by:
+            alias = TAG_TABLE_COLUMN_ALIASES.get(sorted_by, sorted_by)
+            self.console.print(f"[italic]Sorted by: {alias}[/italic]")
 
     def _render_conditional_tables(self, payload: dict):
         for title, block in payload.items():
