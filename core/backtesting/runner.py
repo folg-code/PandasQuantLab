@@ -229,19 +229,7 @@ class BacktestRunner:
             self.strategy.report_config.contexts
         )
 
-        print(prepared_df.columns.tolist())
 
-        print(
-            prepared_df["bos_bear_struct_vol"]
-            .value_counts(dropna=False)
-            .head()
-        )
-
-        print(
-            prepared_df["trend_regime"]
-            .value_counts(dropna=False)
-            .head()
-        )
 
         # 3️⃣ RUN REPORT (PURE)
         ReportRunner(

@@ -15,7 +15,8 @@ class ContextSpec:
 @dataclass
 class ReportContext:
     trades: pd.DataFrame
-    equity: pd.Series
+    equity: pd.Series | None
+    drawdown: pd.Series | None
     df_plot: pd.DataFrame
     config: Any
     strategy: Any
