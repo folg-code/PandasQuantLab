@@ -4,6 +4,7 @@ from core.backtesting.reporting.core.sections.backtest_config import BacktestCon
 from core.backtesting.reporting.core.sections.conditional_expectancy import ConditionalExpectancySection
 from core.backtesting.reporting.core.sections.core_performance import CorePerformanceSection
 from core.backtesting.reporting.core.sections.entry_tag_performance import EntryTagPerformanceSection
+from core.backtesting.reporting.core.sections.exit_logic_diagnostics import ExitLogicDiagnosticsSection
 from core.backtesting.reporting.core.sections.tail_risk import TailRiskSection
 from core.backtesting.reporting.core.sections.trade_distribution import TradeDistributionSection
 from core.backtesting.reporting.renders.stdout import StdoutRenderer
@@ -61,6 +62,7 @@ class ReportRunner:
                 TailRiskSection(),
                 EntryTagPerformanceSection(),
                 ConditionalExpectancySection(),
+                ExitLogicDiagnosticsSection(),
             ]
         )
 
