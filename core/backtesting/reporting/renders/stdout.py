@@ -18,6 +18,15 @@ ENTRY_TAG_COLUMN_ALIASES = {
     "Max drawdown contribution (USD)": "DD"
 }
 
+CONDITIONAL_COLUMN_ALIASES = {
+    "hour": "Hour",
+    "weekday": "Day",
+    "Trades": "N",
+    "Expectancy (USD)": "EXP",
+    "Win rate": "WR",
+    "Total PnL": "PnL",
+}
+
 
 class StdoutRenderer:
     """
@@ -92,6 +101,50 @@ class StdoutRenderer:
             return f"{v:,.4f}"
         return str(v)
 
+    def _render_conditional_tables(self, payload: dict):
+        """
+        Renders multiple conditional expectancy tables.
+        Each key in payload is a separate condition block.
+        """
+
+        for title, block in payload.items():
+            rows = block.get("rows", [])
+            if not rows:
+                continue
+
+            self.console.print(f"\n[bold]{title}[/bold]")
+
+            table = Table(
+                show_header=True,
+                header_style="bold magenta",
+                box=None
+            )
+
+            raw_columns = list(rows[0].keys())
+
+            # Apply aliases
+            columns = [
+                CONDITIONAL_COLUMN_ALIASES.get(col, col)
+                for col in raw_columns
+            ]
+
+            for col in columns:
+                table.add_column(col, justify="right", no_wrap=True)
+
+            for row in rows:
+                table.add_row(
+                    *[self._fmt(row[col]) for col in raw_columns]
+                )
+
+            self.console.print(table)
+
+            sorted_by = block.get("sorted_by")
+            if sorted_by:
+                alias = CONDITIONAL_COLUMN_ALIASES.get(sorted_by, sorted_by)
+                self.console.print(f"[italic]Sorted by: {alias}[/italic]")
+
+
+
     def _render_section(self, name: str, payload: dict):
 
         self.console.print()
@@ -104,5 +157,9 @@ class StdoutRenderer:
 
         if name == "Performance by Entry Tag":
             self._render_entry_tag_table(payload)
+
+        elif name == "Conditional Expectancy Analysis":
+            self._render_conditional_tables(payload)
+
         else:
             self.console.print(Pretty(payload, expand_all=True))
