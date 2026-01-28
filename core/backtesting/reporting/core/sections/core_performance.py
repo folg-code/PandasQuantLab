@@ -64,40 +64,29 @@ class CorePerformanceSection(ReportSection):
 
         return wins / abs(losses)
 
-    def _cagr(
-            self,
-            initial_balance: float,
-            final_balance: float,
-            start_time,
-            end_time,
-    ) -> float:
+    def _cagr(self, initial_balance, final_balance, start_time, end_time):
 
-        if initial_balance <= 0:
-            return np.nan
-
-        # 🔑 NORMALIZE TIME (HANDLE TZ AWARE / NAIVE)
-        start = self._to_utc(start_time)
-        end = self._to_utc(end_time)
-
-        days = (end - start).days
-
-        if days <= 0:
-            return np.nan
-
-        return (final_balance / initial_balance) ** (365 / days) - 1
-
-    def _to_utc(self, ts):
-        """
-        Normalize timestamp to tz-aware UTC.
-        """
-        if ts is None:
+        if start_time is None or end_time is None:
             return None
 
-        ts = np.datetime64(ts)
+        # --------------------------------------------------
+        # FORCE UTC (tz-aware)
+        # --------------------------------------------------
+        if start_time.tzinfo is None:
+            start_time = start_time.tz_localize("UTC")
+        else:
+            start_time = start_time.tz_convert("UTC")
 
-        ts = pd.to_datetime(ts)
+        if end_time.tzinfo is None:
+            end_time = end_time.tz_localize("UTC")
+        else:
+            end_time = end_time.tz_convert("UTC")
 
-        if ts.tzinfo is None:
-            return ts.tz_localize("UTC")
+        days = (end_time - start_time).days
+        if days <= 0:
+            return None
 
-        return ts.tz_convert("UTC")
+        if initial_balance <= 0 or final_balance <= 0:
+            return None
+
+        return (final_balance / initial_balance) ** (365 / days) - 1

@@ -2,10 +2,18 @@ from rich.console import Console
 from rich.pretty import Pretty
 from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
 
-ENTRY_TAG_COLUMN_ALIASES = {
-    "Entry tag": "Tag",
+
+# ==================================================
+# COLUMN ALIASES
+# ==================================================
+
+TAG_TABLE_COLUMN_ALIASES = {
+    # Common
+    "Tag": "Tag",
+    "Context": "Ctx",
+
+    # Performance
     "Trades": "N",
     "Expectancy (USD)": "EXP",
     "Win rate": "WR [%]",
@@ -15,7 +23,17 @@ ENTRY_TAG_COLUMN_ALIASES = {
     "Max consecutive losses": "MaxL",
     "Total PnL": "PnL",
     "Contribution to total PnL (%)": "PnL%",
-    "Max drawdown contribution (USD)": "DD"
+    "Max internal drawdown (USD)": "DD",
+
+    # Exit / Drawdown
+    "Depth": "Depth",
+    "Duration (trades)": "Dur",
+    "Recovery (trades)": "Rec",
+    "Trades during DD": "N",
+    "PnL during DD": "PnL",
+    "Start": "Start",
+    "End": "End",
+    "DD #": "DD",
 }
 
 CONDITIONAL_COLUMN_ALIASES = {
@@ -28,26 +46,72 @@ CONDITIONAL_COLUMN_ALIASES = {
 }
 
 
+# ==================================================
+# STDOUT RENDERER
+# ==================================================
+
 class StdoutRenderer:
     """
     Generic section-based stdout renderer.
-    Assumes report_data is a dict of:
-        { section_name: section_payload }
+
+    Contract:
+    - Section returns either:
+        * dict (Pretty-printed)
+        * { "rows": [...], "sorted_by": ... }  -> tag table
+        * { key: { "rows": [...] }, ... }      -> conditional tables
     """
 
     def __init__(self):
         self.console = Console()
 
-    def render(self, report_data: dict):
+    # ==================================================
+    # PUBLIC API
+    # ==================================================
 
+    def render(self, report_data: dict):
         for section_name, section_payload in report_data.items():
             self._render_section(section_name, section_payload)
 
     # ==================================================
-    # SECTION RENDERING
+    # SECTION DISPATCH
     # ==================================================
 
-    def _render_entry_tag_table(self, payload: dict):
+    def _render_section(self, name: str, payload: dict):
+
+        self.console.print()
+        self.console.print(
+            Panel.fit(
+                f"[bold cyan]{name}[/bold cyan]",
+                border_style="cyan"
+            )
+        )
+
+        # --- Tag-style tables (entry / exit / drawdown rows) ---
+        if name in {
+            "Performance by Entry Tag",
+            "Exit Logic Diagnostics",
+        }:
+            self._render_tag_table(payload)
+
+        elif name == "Drawdown Structure & Failure Modes":
+            self._render_drawdown_section(payload)
+
+        # --- Conditional multi-tables ---
+        elif name in {
+            "Conditional Expectancy Analysis",
+            "Conditional Entry Tag Performance",
+        }:
+            self._render_conditional_tables(payload)
+
+        # --- Fallback ---
+        else:
+            self.console.print(Pretty(payload, expand_all=True))
+
+    # ==================================================
+    # TAG TABLE RENDERER
+    # ==================================================
+
+    def _render_tag_table(self, payload: dict):
 
         rows = payload.get("rows", [])
         if not rows:
@@ -65,11 +129,11 @@ class StdoutRenderer:
 
         # Apply aliases
         columns = [
-            ENTRY_TAG_COLUMN_ALIASES.get(col, col)
+            TAG_TABLE_COLUMN_ALIASES.get(col, col)
             for col in raw_columns
         ]
 
-        # Column definitions
+        # Columns
         for col in columns:
             table.add_column(
                 col,
@@ -87,19 +151,64 @@ class StdoutRenderer:
 
         sorted_by = payload.get("sorted_by")
         if sorted_by:
-            alias = ENTRY_TAG_COLUMN_ALIASES.get(sorted_by, sorted_by)
+            alias = TAG_TABLE_COLUMN_ALIASES.get(sorted_by, sorted_by)
             self.console.print(f"[italic]Sorted by: {alias}[/italic]")
 
     # ==================================================
-    # FORMATTER
+    # CONDITIONAL TABLES RENDERER
     # ==================================================
 
-    def _fmt(self, v):
-        if v is None:
-            return "-"
-        if isinstance(v, float):
-            return f"{v:,.4f}"
-        return str(v)
+    def _render_drawdown_section(self, payload: dict):
+
+        # ==========================
+        # SUMMARY
+        # ==========================
+        summary = payload.get("Summary", {})
+        if summary:
+            self.console.print("\n[bold]Summary[/bold]")
+            for k, v in summary.items():
+                self.console.print(f"{k}: {self._fmt(v)}")
+
+        # ==========================
+        # FAILURE MODES TABLE
+        # ==========================
+        failure = payload.get("Failure modes")
+        if not failure:
+            return
+
+        rows = failure.get("rows", [])
+        if not rows:
+            return
+
+        self.console.print("\n[bold]Failure modes[/bold]")
+
+        table = Table(
+            show_header=True,
+            header_style="bold magenta",
+            box=None,
+            show_lines=False
+        )
+
+        raw_columns = list(rows[0].keys())
+        columns = [
+            TAG_TABLE_COLUMN_ALIASES.get(col, col)
+            for col in raw_columns
+        ]
+
+        for col in columns:
+            table.add_column(col, justify="right", no_wrap=True)
+
+        for row in rows:
+            table.add_row(
+                *[self._fmt(row[col]) for col in raw_columns]
+            )
+
+        self.console.print(table)
+
+        sorted_by = failure.get("sorted_by")
+        if sorted_by:
+            alias = TAG_TABLE_COLUMN_ALIASES.get(sorted_by, sorted_by)
+            self.console.print(f"[italic]Sorted by: {alias}[/italic]")
 
     def _render_conditional_tables(self, payload: dict):
         """
@@ -143,29 +252,13 @@ class StdoutRenderer:
                 alias = CONDITIONAL_COLUMN_ALIASES.get(sorted_by, sorted_by)
                 self.console.print(f"[italic]Sorted by: {alias}[/italic]")
 
+    # ==================================================
+    # FORMATTER
+    # ==================================================
 
-
-    def _render_section(self, name: str, payload: dict):
-
-        self.console.print()
-        self.console.print(
-            Panel.fit(
-                f"[bold cyan]{name}[/bold cyan]",
-                border_style="cyan"
-            )
-        )
-
-        if name == "Performance by Entry Tag":
-            self._render_entry_tag_table(payload)
-
-        elif name == "Conditional Entry Tag Performance":
-            self._render_conditional_tables(payload)
-
-        elif name == "Exit Logic Diagnostics":
-            self._render_entry_tag_table(payload)
-
-        elif name == "Conditional Expectancy Analysis":
-            self._render_conditional_tables(payload)
-
-        else:
-            self.console.print(Pretty(payload, expand_all=True))
+    def _fmt(self, v):
+        if v is None:
+            return "-"
+        if isinstance(v, float):
+            return f"{v:,.4f}"
+        return str(v)

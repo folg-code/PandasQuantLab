@@ -20,7 +20,7 @@ class DrawdownStructureSection(ReportSection):
         if equity is None or equity.empty:
             return {"error": "Equity curve not available"}
 
-        drawdowns = self._extract_drawdown_episodes(equity)
+        drawdowns = self._extract_drawdown_episodes(equity, trades)
 
         if not drawdowns:
             return {"message": "No drawdowns detected"}
@@ -51,12 +51,33 @@ class DrawdownStructureSection(ReportSection):
     # Core logic
     # ==================================================
 
-    def _extract_drawdown_episodes(self, equity) -> List[dict]:
-        """
-        Identify drawdown episodes from equity curve.
-        Each episode: peak -> trough -> recovery (or end).
-        """
+    def _build_episode(self, start_idx, end_idx, trough, peak, trough_idx, trades):
+        start_time = trades.loc[start_idx, "exit_time"]
+        end_time = (
+            trades.loc[end_idx, "exit_time"]
+            if end_idx is not None else None
+        )
 
+        duration = trades.loc[start_idx:trough_idx].shape[0]
+
+        recovery = (
+            trades.loc[trough_idx:end_idx].shape[0]
+            if end_idx is not None else None
+        )
+
+        return {
+            "start_idx": start_idx,
+            "end_idx": end_idx,
+            "start_time": start_time,
+            "end_time": end_time,
+            "depth": float(peak - trough),
+            "duration": int(duration),
+            "recovery_time": (
+                int(recovery) if recovery is not None else None
+            ),
+        }
+
+    def _extract_drawdown_episodes(self, equity, trades):
         peak = equity.iloc[0]
         peak_idx = equity.index[0]
 
@@ -69,13 +90,9 @@ class DrawdownStructureSection(ReportSection):
         for idx, value in equity.items():
             if value >= peak:
                 if in_dd:
-                    episodes.append({
-                        "start": start_idx,
-                        "end": idx,
-                        "depth": peak - trough,
-                        "duration": equity.loc[start_idx:trough_idx].shape[0],
-                        "recovery_time": equity.loc[trough_idx:idx].shape[0],
-                    })
+                    episodes.append(self._build_episode(
+                        start_idx, idx, trough, peak, trough_idx, trades
+                    ))
                     in_dd = False
 
                 peak = value
@@ -92,15 +109,11 @@ class DrawdownStructureSection(ReportSection):
                     trough = value
                     trough_idx = idx
 
-        # Unrecovered DD
+        # unrecovered drawdown
         if in_dd:
-            episodes.append({
-                "start": start_idx,
-                "end": None,
-                "depth": peak - trough,
-                "duration": equity.loc[start_idx:trough_idx].shape[0],
-                "recovery_time": None,
-            })
+            episodes.append(self._build_episode(
+                start_idx, None, trough, peak, trough_idx, trades
+            ))
 
         return episodes
 
@@ -112,21 +125,23 @@ class DrawdownStructureSection(ReportSection):
         rows = []
 
         for i, dd in enumerate(drawdowns, start=1):
-            if dd["end"] is not None:
-                mask = (
-                    (trades.index >= dd["start"]) &
-                    (trades.index <= dd["end"])
-                )
+            start_idx = dd["start_idx"]
+            end_idx = dd["end_idx"]
+
+            if end_idx is not None:
+                mask = (trades.index >= start_idx) & (trades.index <= end_idx)
             else:
-                mask = trades.index >= dd["start"]
+                mask = trades.index >= start_idx
 
             dd_trades = trades.loc[mask]
 
             rows.append({
-                "Drawdown #": i,
+                "DD #": i,
+                "Start": dd["start_time"],
+                "End": dd["end_time"] or "OPEN",
                 "Depth": float(dd["depth"]),
                 "Duration (trades)": int(dd["duration"]),
-                "Recovery time (trades)": (
+                "Recovery (trades)": (
                     int(dd["recovery_time"])
                     if dd["recovery_time"] is not None else None
                 ),
