@@ -6,3 +6,4 @@ renderKPI(report);
 renderTradeDistribution(report);
 renderConditionalExpectancy(report);
 renderEquityDrawdown(report);
+renderDiagnostics(report);
