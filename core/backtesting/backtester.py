@@ -15,7 +15,7 @@ INSTRUMENT_META = {
         "point": 0.0001,
         "pip_value": 10.0,
     },
-    "GOLD": {
+    "XAUUSD": {
         "point": 0.01,
         "pip_value": 1.0,
     },

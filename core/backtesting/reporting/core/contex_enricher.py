@@ -9,7 +9,6 @@ class TradeContextEnricher:
     def __init__(self, df_candles: pd.DataFrame):
         df = df_candles.copy()
 
-        # 🔑 NORMALIZE TIME (ABSOLUTNIE KLUCZOWE)
         df["time"] = pd.to_datetime(df["time"], utc=True)
 
         self.df = df.sort_values("time")
@@ -17,7 +16,6 @@ class TradeContextEnricher:
     def enrich(self, trades: pd.DataFrame, contexts: list) -> pd.DataFrame:
         df = trades.copy()
 
-        # 🔑 NORMALIZE ENTRY_TIME
         df["entry_time"] = pd.to_datetime(df["entry_time"], utc=True)
 
         for ctx in contexts:

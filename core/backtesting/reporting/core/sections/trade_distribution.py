@@ -1,6 +1,3 @@
-import numpy as np
-from typing import Dict, Any
-
 from core.backtesting.reporting.core.section import ReportSection
 from core.backtesting.reporting.core.context import ReportContext
 
@@ -17,15 +14,11 @@ class TradeDistributionSection(ReportSection):
 
         trades = ctx.trades.copy()
 
-        r = trades["returns"]          # R-multiple
-        d_hours = trades["duration"] / 3600.0       # trade duration (candles / minutes)
-
+        r = trades["returns"]
+        d_hours = trades["duration"] / 3600.0
 
         total = len(r)
 
-        # ------------------------------
-        # R-multiple buckets
-        # ------------------------------
         buckets = {
             "< -1R": (r < -1),
             "-1R to 0": ((r >= -1) & (r < 0)),

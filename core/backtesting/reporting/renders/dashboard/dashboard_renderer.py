@@ -47,7 +47,6 @@ class DashboardRenderer:
         return out
 
     def _copy_static(self):
-        import shutil
 
         target = self.output_dir / "static"
         if target.exists():
