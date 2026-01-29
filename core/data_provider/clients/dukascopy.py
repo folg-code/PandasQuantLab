@@ -72,11 +72,14 @@ class DukascopyClient:
             end: pd.Timestamp,
     ) -> Path:
         workdir = Path(tempfile.mkdtemp())
-        download_dir = workdir / "download"
-        download_dir.mkdir(exist_ok=True)
+
+        print(
+            f"📥 Dukascopy | fetching {symbol} {timeframe} "
+            f"{start.strftime('%Y-%m-%d')} → {end.strftime('%Y-%m-%d')}"
+        )
 
         cmd = [
-            "npx.cmd",
+            self.npx_cmd,
             "dukascopy-node",
             "-i", symbol.lower(),
             "-from", start.strftime("%Y-%m-%d"),
@@ -88,6 +91,8 @@ class DukascopyClient:
         proc = subprocess.run(
             cmd,
             cwd=workdir,
+            stdout=None,
+            stderr=None,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -96,24 +101,37 @@ class DukascopyClient:
 
         if proc.returncode != 0:
             raise DataNotAvailable(
-                f"Dukascopy CLI failed for {symbol} {timeframe}\n"
+                f"Dukascopy CLI failed for {symbol} {timeframe} (rc={proc.returncode})\n"
+                f"CMD: {' '.join(cmd)}\n"
+                f"STDOUT:\n{proc.stdout}\n"
                 f"STDERR:\n{proc.stderr}"
             )
 
-        csv_files = list(download_dir.glob("*.csv"))
+        csv_files = list(workdir.rglob("*.csv"))
 
         if not csv_files:
             raise DataNotAvailable(
                 f"Dukascopy CLI produced no CSV files for {symbol} {timeframe}\n"
-                f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+                f"CMD: {' '.join(cmd)}\n"
+                f"STDOUT:\n{proc.stdout}\n"
+                f"STDERR:\n{proc.stderr}"
             )
 
         csv_path = max(csv_files, key=lambda p: p.stat().st_size)
 
         if csv_path.stat().st_size == 0:
             raise DataNotAvailable(
-                f"Dukascopy CSV is empty for {symbol} {timeframe}: {csv_path.name}"
+                f"Dukascopy CSV is empty for {symbol} {timeframe}: {csv_path}\n"
+                f"CMD: {' '.join(cmd)}\n"
+                f"STDOUT:\n{proc.stdout}\n"
+                f"STDERR:\n{proc.stderr}"
             )
+
+        print(
+            f"✅ Dukascopy | OK {symbol} {timeframe} "
+            f"size={csv_path.stat().st_size / 1024:.1f} KB "
+            f"file={csv_path.name}"
+        )
 
         return csv_path
 

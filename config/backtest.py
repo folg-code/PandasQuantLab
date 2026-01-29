@@ -27,11 +27,11 @@ BACKTEST_WINDOWS = {
 # STRATEGY
 # ==================================================
 
-STRATEGY_CLASS = "Samplestrategy"
+STRATEGY_CLASS = "Samplestrategyreport"
 STARTUP_CANDLE_COUNT = 600
 
 SYMBOLS = [
-    "EURUSD",
+    "XAUUSD",
 ]
 
 TIMEFRAME = "M5"
