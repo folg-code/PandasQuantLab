@@ -1,6 +1,7 @@
 from config.backtest import INITIAL_BALANCE
 from core.backtesting.reporting.core.context import ReportContext
 from core.backtesting.reporting.core.equity import EquityPreparer
+from core.backtesting.reporting.core.persistence import ReportPersistence
 from core.backtesting.reporting.core.sections.backtest_config import BacktestConfigSection
 from core.backtesting.reporting.core.sections.capital_exposure import CapitalExposureSection
 from core.backtesting.reporting.core.sections.conditional_entry_tag import ConditionalEntryTagPerformanceSection
@@ -75,9 +76,17 @@ class ReportRunner:
             ]
         )
 
-        # ==================================================
-        # COMPUTE & RENDER
-        # ==================================================
-
         data = report.compute(ctx)
+
         self.renderer.render(data)
+
+        # ==========================
+        # PERSIST FOR DASHBOARD
+        # ==========================
+
+        ReportPersistence().persist(
+            trades=ctx.trades,
+            equity=ctx.equity,
+            report_data=data,
+            meta={},
+        )
