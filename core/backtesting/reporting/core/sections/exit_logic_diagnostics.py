@@ -22,50 +22,55 @@ class ExitLogicDiagnosticsSection(ReportSection):
         if "exit_tag" not in trades.columns:
             return {"error": "Column 'exit_tag' not found"}
 
-        # --------------------------------------------------
-        # Compose unified exit_tag (reason + level)
-        # --------------------------------------------------
-        trades["exit_compound_tag"] = trades.apply(
-            self._compose_exit_tag,
-            axis=1
-        )
+        trades["exit_compound_tag"] = trades.apply(self._compose_exit_tag, axis=1)
 
-        total_pnl = float(trades["pnl_usd"].sum())
-        denom = abs(total_pnl) if total_pnl != 0 else np.nan
+        total_trades = int(len(trades))
+        by_tag = list(trades.groupby("exit_compound_tag"))
+
+        pnl_sum_by_tag = {tag: float(g["pnl_usd"].sum()) for tag, g in by_tag}
+        dd_sum_by_tag = {tag: float(self._dd_contribution(g)) for tag, g in by_tag}
+
+        pnl_denom = sum(abs(v) for v in pnl_sum_by_tag.values()) or np.nan
+        dd_denom = sum(abs(v) for v in dd_sum_by_tag.values()) or np.nan
+
         rows = []
 
-
-
-        for tag, g in trades.groupby("exit_compound_tag"):
+        for tag, g in by_tag:
             pnl = g["pnl_usd"]
 
+            trades_n = int(len(g))
+            pnl_sum = float(pnl.sum())
+
             avg_duration_s = float(g["duration"].mean()) if "duration" in g.columns else np.nan
+            dd_contrib_usd = float(dd_sum_by_tag[tag])
 
             rows.append({
                 "Exit tag": str(tag),
-                "Trades": int(len(g)),
+                "Trades": int(trades_n),
+                "Share (%)": {"raw": (trades_n / total_trades) if total_trades else np.nan, "kind": "pct"},
+
                 "Expectancy (USD)": float(pnl.mean()),
                 "Avg duration": {"raw": avg_duration_s, "kind": "duration_s"},
+
                 "Win rate": {"raw": float((pnl > 0).mean()), "kind": "pct"},
                 "Average PnL": float(pnl.mean()),
-                "Total PnL": float(pnl.sum()),
-                "Contribution to total PnL (%)": {
-                    "raw": (float(pnl.sum()) / denom) if denom == denom else np.nan,
+                "Total PnL": float(pnl_sum),
+
+                "PnL contribution (%)": {
+                    "raw": (pnl_sum / pnl_denom) if pnl_denom == pnl_denom else np.nan,
+                    "kind": "pct",
+                },
+
+                "Max drawdown contribution (USD)": float(dd_contrib_usd),
+                "DD contribution (%)": {
+                    "raw": (dd_contrib_usd / dd_denom) if dd_denom == dd_denom else np.nan,
                     "kind": "pct",
                 },
             })
 
-        # Sort by expectancy (DESC)
-        rows = sorted(
-            rows,
-            key=lambda x: x["Expectancy (USD)"],
-            reverse=True
-        )
+        rows = sorted(rows, key=lambda x: x["Expectancy (USD)"], reverse=True)
 
-        return {
-            "rows": rows,
-            "sorted_by": "Expectancy (USD)"
-        }
+        return {"rows": rows, "sorted_by": "Expectancy (USD)"}
 
     # ==================================================
     # Helpers
@@ -80,3 +85,10 @@ class ExitLogicDiagnosticsSection(ReportSection):
             return reason
 
         return f"{reason}_{level}"
+
+    @staticmethod
+    def _dd_contribution(group_trades):
+        equity = group_trades["pnl_usd"].cumsum()
+        peak = equity.cummax()
+        dd = peak - equity
+        return float(dd.max())
