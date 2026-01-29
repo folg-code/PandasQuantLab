@@ -5,7 +5,14 @@ from typing import Dict, Any
 
 from time import perf_counter
 import pandas as pd
+from plotly.graph_objs import volume
 
+from config.backtest import INITIAL_BALANCE
+from config.live import MAX_RISK_PER_TRADE
+from core.backtesting.backtester import INSTRUMENT_META
+from core.backtesting.reporting.config.report_config import ReportConfig
+from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
+from core.domain.risk import position_sizer_fast
 from core.strategy.trade_plan import (
     TradePlan,
     FixedExitPlan,
@@ -13,6 +20,7 @@ from core.strategy.trade_plan import (
     TradeAction,
 )
 from core.backtesting.plotting.zones import ZoneView
+from core.utils.timing_log import run_step
 
 
 class BaseStrategy:
@@ -86,6 +94,7 @@ class BaseStrategy:
 
         self.strategy_config = strategy_config or {}
         self.validate_strategy_config()
+        self.report_config = self.build_report_config()
 
     # ==================================================
     # Strategy config validation
@@ -142,6 +151,19 @@ class BaseStrategy:
         cfg = self.strategy_config
         use_trailing = cfg.get("USE_TRAILING", False)
 
+        meta = INSTRUMENT_META[self.symbol]
+        point_size = meta["point"]
+        pip_value = meta["pip_value"]
+
+        volume = position_sizer_fast(
+            close=row.close,
+            sl=sl,
+            max_risk=MAX_RISK_PER_TRADE,
+            account_size=INITIAL_BALANCE,
+            point_size=point_size,
+            pip_value=pip_value,
+        )
+
         has_signal_exit = isinstance(row.get("signal_exit"), dict)
         has_custom_sl = isinstance(row.get("custom_stop_loss"), dict)
         is_managed = use_trailing or has_signal_exit or has_custom_sl
@@ -166,6 +188,7 @@ class BaseStrategy:
             direction=direction,
             entry_price=row["close"],
             entry_tag=signal.get("tag", ""),
+            volume=volume,
             exit_plan=exit_plan,
             strategy_name=type(self).__name__,
             strategy_config=self.strategy_config,
@@ -201,51 +224,74 @@ class BaseStrategy:
 
     def _populate_informatives(self):
 
-        print("📈 🧠 run_strategy | populate_informatives start ")
         if self.provider is None:
             return
 
         for tf, methods in self.informatives.items():
 
-            # -------------------------------------------------
-            # FETCH INFORMATIVE DATA
-            # -------------------------------------------------
-            t_fetch = perf_counter()
-            df_tf = self.provider.get_informative_df(
-                symbol=self.symbol,
-                timeframe=tf,
-                startup_candle_count=self.startup_candle_count,
-            )
-            fetch_time = perf_counter() - t_fetch
-
-            print(
-                f"📈 🧠 run_strategy | populate_informatives | fetch {tf:<5} "
-                f"{fetch_time:8.3f}s  ({len(df_tf)} rows)"
-            )
-
-            # -------------------------------------------------
-            # APPLY METHODS
-            # -------------------------------------------------
-            for method in methods:
-                t_method = perf_counter()
-                df_tf = method(df_tf)
-                print(
-                    f"📈 🧠 run_strategy | populate_informatives | method {method.__name__:<20} "
-                    f"{perf_counter() - t_method:8.3f}s  ({tf})"
+            # ===============================
+            # FETCH INFORMATIVE DF
+            # ===============================
+            def _fetch(tf=tf):
+                self._informative_results[tf] = self.provider.get_informative_df(
+                    symbol=self.symbol,
+                    timeframe=tf,
+                    startup_candle_count=self.startup_candle_count,
                 )
 
-            self._informative_results[tf] = df_tf
+            run_step(
+                f"populate_informatives | fetch {tf}",
+                _fetch,
+            )
+
+            # ===============================
+            # APPLY METHODS
+            # ===============================
+            for method in methods:
+                def _apply_method(method=method, tf=tf):
+                    df = self._informative_results[tf]
+                    self._informative_results[tf] = method(df)
+
+                run_step(
+                    f"populate_informatives | method {method.__name__} ({tf})",
+                    _apply_method,
+                )
 
     def _merge_informatives(self):
         if "time" not in self.df.columns:
             raise ValueError("Main dataframe must contain 'time' column")
 
         for tf, df_tf in self._informative_results.items():
+
+            # ===============================
+            # 1️⃣ VALIDATION
+            # ===============================
+            if "time" not in df_tf.columns:
+                raise RuntimeError(
+                    f"Informative DF for TF={tf} has no 'time'. "
+                    f"Columns={list(df_tf.columns)}"
+                )
+
+            # ===============================
+            # 2️⃣ DROP PREVIOUS TF COLUMNS
+            # ===============================
+            suffix = f"_{tf}"
+            cols_to_drop = [c for c in self.df.columns if c.endswith(suffix)]
+            if cols_to_drop:
+                self.df = self.df.drop(columns=cols_to_drop)
+
+            # ===============================
+            # 3️⃣ PREFIX INFORMATIVE DF
+            # ===============================
             df_tf_prefixed = df_tf.rename(
                 columns={c: f"{c}_{tf}" for c in df_tf.columns if c != "time"}
-            )
+            ).copy()
+
             df_tf_prefixed[f"time_{tf}"] = df_tf["time"]
 
+            # ===============================
+            # 4️⃣ ASOF MERGE
+            # ===============================
             self.df = pd.merge_asof(
                 self.df.sort_values("time"),
                 df_tf_prefixed.sort_values(f"time_{tf}"),
@@ -254,10 +300,21 @@ class BaseStrategy:
                 direction="backward",
             )
 
-        if "time_x" in self.df.columns:
-            self.df = self.df.rename(columns={"time_x": "time"})
-        if "time_y" in self.df.columns:
-            self.df = self.df.drop(columns=["time_y"])
+            # ===============================
+            # 5️⃣ NORMALIZE TIME (CRITICAL)
+            # ===============================
+            if "time_x" in self.df.columns:
+                self.df = self.df.rename(columns={"time_x": "time"})
+
+            if "time_y" in self.df.columns:
+                self.df = self.df.drop(columns=["time_y"])
+
+            # ===============================
+            # 6️⃣ DROP TF TIME COLUMN
+            # ===============================
+            self.df = self.df.drop(columns=[f"time_{tf}"])
+
+        return self.df
 
     # ==================================================
     # Strategy hooks (must be implemented)
@@ -271,6 +328,13 @@ class BaseStrategy:
 
     def populate_exit_trend(self):
         raise NotImplementedError
+
+    def build_report_config(self):
+        return (
+            ReportConfig()
+            .add_metric(ExpectancyMetric())
+            .add_metric(MaxDrawdownMetric())
+        )
 
     def get_bullish_zones(self):
         return []
@@ -286,18 +350,19 @@ class BaseStrategy:
     # ==================================================
 
     def run(self):
-        self._run_step("📈 🧠 run_strategy | populate_informatives TOTAL", self._populate_informatives)
-        self._run_step("📈 🧠 run_strategy | merge_informatives", self._merge_informatives)
-        self._run_step("📈 🧠 run_strategy | populate_indicators", self.populate_indicators)
-        self._run_step("📈 🧠 run_strategy | populate_entry_trend", self.populate_entry_trend)
-        self._run_step("📈 🧠 run_strategy | populate_exit_trend", self.populate_exit_trend)
+        run_step("📈 🧠 run_strategy | populate_informatives TOTAL", self._populate_informatives)
+        run_step("📈 🧠 run_strategy | merge_informatives", self._merge_informatives)
+        run_step("📈 🧠 run_strategy | populate_indicators", self.populate_indicators)
+        run_step("📈 🧠 run_strategy | populate_entry_trend", self.populate_entry_trend)
+        run_step("📈 🧠 run_strategy | populate_exit_trend", self.populate_exit_trend)
 
+        self.build_report_config()
         self.get_bullish_zones()
         self.get_bearish_zones()
         self.get_extra_values_to_plot()
         self.bool_series()
 
-        self._run_step("📈 🧠 run_strategy | _finalize", self._finalize)
+        run_step("📈 🧠 run_strategy | _finalize", self._finalize)
 
         return self.df_backtest
 
@@ -305,13 +370,12 @@ class BaseStrategy:
     # Helpers
     # ==================================================
 
-    def _run_step(self, name, func):
-        start = time.time()
-        func()
-        print(f"{name:<30} {time.time() - start:.3f}s")
 
     def _finalize(self):
         self.df_plot = self.df.copy()
+
+
+
         self.df_backtest = self.df[self.REQUIRED_COLUMNS].copy()
 
     def _collect_informatives(self):

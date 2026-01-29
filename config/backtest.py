@@ -1,4 +1,7 @@
 # config/backtest.py
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # ==================================================
 # DATA
@@ -8,7 +11,7 @@ MARKET_DATA_PATH = "market_data"
 BACKTEST_DATA_BACKEND = "dukascopy"   # "dukascopy" | "csv"
 
 TIMERANGE = {
-    "start": "2019-01-01",
+    "start": "2022-01-01",
     "end":   "2025-12-31",
 }
 

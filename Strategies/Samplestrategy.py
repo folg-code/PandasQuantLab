@@ -2,6 +2,8 @@ import pandas as pd
 import talib.abstract as ta
 
 from Strategies.utils.decorators import informative
+from core.backtesting.reporting.core.context import ContextSpec
+from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
 from core.strategy.BaseStrategy import BaseStrategy
 from TechnicalAnalysis.MarketStructure.engine import MarketStructureEngine
 
@@ -13,6 +15,22 @@ class Samplestrategy(BaseStrategy):
     - structural bias
     - BOS + follow-through continuation
     """
+
+    class Samplestrategy(BaseStrategy):
+
+        def __init__(
+                self,
+                df,
+                symbol,
+                startup_candle_count,
+                provider,
+        ):
+            super().__init__(
+                df=df,
+                symbol=symbol,
+                startup_candle_count=startup_candle_count,
+                provider=provider,
+            )
 
     @informative("M30")
     def populate_indicators_M30(self, df):
@@ -66,6 +84,7 @@ class Samplestrategy(BaseStrategy):
     def populate_entry_trend(self):
 
         df = self.df.copy()
+
 
 
 
@@ -181,11 +200,33 @@ class Samplestrategy(BaseStrategy):
             axis=1
         )
 
-        print("SIGNALES GENERATED", df['signal_entry'].notna().sum())
-
 
         self.df = df
+
+
         return df
+
+    def build_report_config(self):
+        return (
+            super()
+            .build_report_config()
+            .add_metric(ExpectancyMetric())
+            .add_metric(MaxDrawdownMetric())
+            .add_context(
+                ContextSpec(
+                    name="bos_bear_struct_vol",
+                    column="bos_bear_struct_vol",
+                    source="entry_candle"
+                )
+            )
+            .add_context(
+                ContextSpec(
+                    name="trend_regime",
+                    column="trend_regime",
+                    source="entry_candle"
+                )
+            )
+        )
 
     def populate_exit_trend(self):
         self.df["signal_exit"] = None
