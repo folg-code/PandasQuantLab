@@ -18,7 +18,24 @@ function renderCapitalExposure(report) {
   // Helpers
   // ==================================================
 
-  function renderTable(rows) {
+  function renderTableLikeDrawdown(rows) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "diag-section";
+
+    const body = document.createElement("div");
+    body.className = "diag-body";
+    body.style.display = "block";
+
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "diag-table";
+
+    if (!rows || !rows.length) {
+      tableWrap.textContent = "No data";
+      body.appendChild(tableWrap);
+      wrapper.appendChild(body);
+      return wrapper;
+    }
+
     const table = document.createElement("table");
     const cols = Object.keys(rows[0]);
 
@@ -28,14 +45,20 @@ function renderCapitalExposure(report) {
       </thead>
       <tbody>
         ${rows.map(r => `
-          <tr>${cols.map(c => `<td>${r[c]}</td>`).join("")}</tr>
+          <tr>${cols.map(c => `<td>${window.displayValue(r[c])}</td>`).join("")}</tr>
         `).join("")}
       </tbody>
     `;
-    return table;
+
+    tableWrap.appendChild(table);
+    body.appendChild(tableWrap);
+    wrapper.appendChild(body);
+    return wrapper;
   }
 
   function renderBarChart(container, title, x, y, yLabel, colorScale = "RdBu") {
+    container.innerHTML = "";
+
     const h = document.createElement("h4");
     h.textContent = title;
 
@@ -43,22 +66,26 @@ function renderCapitalExposure(report) {
     container.appendChild(h);
     container.appendChild(div);
 
-    const maxAbs = Math.max(...y.map(v => Math.abs(v))) || 1;
+    const safeX = x.map(v => window.displayValue(v));
+    const safeY = y.map(v => Number(v) || 0);
+
+    const maxAbs = Math.max(1e-9, ...safeY.map(v => Math.abs(v)));
 
     Plotly.newPlot(
       div,
       [{
         type: "bar",
-        x: x,
-        y: y,
+        x: safeX,
+        y: safeY,
         marker: {
-          color: y,
+          color: safeY,
           colorscale: colorScale,
           cmin: -maxAbs,
           cmax: maxAbs,
         },
       }],
       {
+        height: 260, // ✅ same as trade distribution tiles
         margin: { t: 20, l: 50, r: 20, b: 60 },
         paper_bgcolor: "#161b22",
         plot_bgcolor: "#161b22",
@@ -67,7 +94,7 @@ function renderCapitalExposure(report) {
         xaxis: {
           type: "category",
           categoryorder: "array",
-          categoryarray: x,
+          categoryarray: safeX,
           automargin: true,
           tickangle: -30,
         },
@@ -86,21 +113,23 @@ function renderCapitalExposure(report) {
   // ==================================================
 
   if (section.Summary) {
-    summaryRoot.appendChild(renderTable([section.Summary]));
+    // Summary is a dict; wrap it as a single-row table
+    summaryRoot.appendChild(renderTableLikeDrawdown([section.Summary]));
   }
 
   const over = section["Overtrading diagnostics"];
   if (!over || !over.rows || !over.rows.length) return;
 
-  tableRoot.appendChild(renderTable(over.rows));
+  tableRoot.appendChild(renderTableLikeDrawdown(over.rows));
 
   // ==================================================
   // ROW 2 – CHARTS
   // ==================================================
 
   const buckets = over.rows.map(r => r["Trades/day"]);
-  const avgPnL = over.rows.map(r => r["Avg PnL"]);
-  const worstDD = over.rows.map(r => -Math.abs(r["Worst DD"]));
+
+  const avgPnL = over.rows.map(r => window.rawValue(r["Avg PnL"]));
+  const worstDD = over.rows.map(r => -Math.abs(Number(window.rawValue(r["Worst DD"])) || 0));
 
   renderBarChart(
     chartPnL,

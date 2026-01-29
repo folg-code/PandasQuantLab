@@ -289,4 +289,8 @@ h1, h2 {
   min-height: 260px;
 }
 
+.capital-row > div > div {
+  min-height: 260px;
+}
+
 /*# sourceMappingURL=dashboard.css.map */
