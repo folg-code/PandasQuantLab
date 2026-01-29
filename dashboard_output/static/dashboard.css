@@ -1,13 +1,7 @@
-$bg: #0d1117;
-$card: #161b22;
-$text: #e6edf3;
-$muted: #8b949e;
-$accent: #58a6ff;
-
 body {
   margin: 0;
-  background: $bg;
-  color: $text;
+  background: #0d1117;
+  color: #e6edf3;
   font-family: Inter, system-ui, sans-serif;
 }
 
@@ -29,13 +23,13 @@ body {
 }
 
 .card {
-  background: $card;
+  background: #161b22;
   border-radius: 8px;
   padding: 16px;
 }
 
 .full-width {
-  grid-column: 1 / -1;
+  grid-column: 1/-1;
 }
 
 .main-grid {
@@ -48,3 +42,5 @@ body {
 h1, h2 {
   margin: 0 0 12px 0;
 }
+
+/*# sourceMappingURL=dashboard.css.map */

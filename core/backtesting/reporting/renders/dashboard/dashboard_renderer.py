@@ -37,7 +37,10 @@ class DashboardRenderer:
         return out
 
     def _copy_static(self):
+        import shutil
+
         target = self.output_dir / "static"
         if target.exists():
-            return
+            shutil.rmtree(target)
+
         shutil.copytree(self.static_dir, target)

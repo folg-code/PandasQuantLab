@@ -10,6 +10,7 @@
 
 <body>
 
+<!-- GLOBAL REPORT CONTEXT -->
 <script>
   window.REPORT_DATA = {{ report_json | safe }};
 </script>
@@ -22,9 +23,7 @@
   </header>
 
   <!-- KPI GRID -->
-  <section class="kpi-grid" id="kpi-grid">
-    <!-- filled by JS -->
-  </section>
+  <section class="kpi-grid" id="kpi-grid"></section>
 
   <!-- MAIN GRID -->
   <section class="main-grid">
@@ -56,6 +55,12 @@
 
 </div>
 
+<!-- SECTION RENDERERS -->
+<script src="static/sections/kpi.js"></script>
+<script src="static/sections/trade_distribution.js"></script>
+
+<!-- BOOTSTRAP -->
 <script src="static/dashboard.js"></script>
+
 </body>
 </html>
