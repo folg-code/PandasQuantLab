@@ -162,4 +162,23 @@ h1, h2 {
   max-width: 100% !important;
 }
 
+.capital-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.capital-row > div {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Plotly containers */
+.capital-row > div > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 260px;
+}
+
 /*# sourceMappingURL=dashboard.css.map */
