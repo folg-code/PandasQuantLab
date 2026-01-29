@@ -115,18 +115,36 @@ Performance-critical exit simulation is implemented with **Numba JIT**.
 
 ### 5. Reporting & Analytics
 
-The reporting layer provides:
+The reporting layer provides a structured, extensible analytics framework for
+evaluating trading strategies at multiple levels of granularity.
 
-- equity curve computation
-- drawdown analysis
-- expectancy & profit factor
-- per-symbol and per-signal statistics
-- stability analysis across backtest windows
+Core capabilities include:
+
+- equity curve computation and visualization
+- drawdown analysis (absolute, percentage, structure & failure modes)
+- expectancy, profit factor, win rate and R-distribution
+- per-symbol, per-entry-tag and per-exit-tag performance diagnostics
+- conditional performance analysis across:
+  - time (hour of day, day of week)
+  - market regimes / strategy contexts
+- contribution analysis:
+  - PnL contribution by signal, tag and regime
+  - drawdown contribution by signal and exit logic
+- stability analysis across rolling and sliced backtest windows
+
+The reporting system is designed around **single-source-of-truth data structures**,
+ensuring consistent results across all outputs.
 
 Reports are available as:
-- rich console tables
-- text files
-- data structures for further analysis
+- rich console tables (stdout renderer)
+- persisted data artifacts (JSON / structured Python objects)
+- interactive HTML dashboards with charts and tables
+- reusable data structures for further research, comparison and automation
+
+Planned extensions:
+- side-by-side strategy comparison (A/B testing)
+- comparison against benchmarks (buy & hold, index, synthetic baseline)
+- equity curve overlays and metric-level diffs
 
 ---
 
@@ -137,7 +155,6 @@ Charting utilities support:
 - price charts
 - signal overlays
 - trade entry / exit visualization
-- diagnostic plots for research validation
 
 Plots are generated automatically during backtests.
 
@@ -283,25 +300,19 @@ _No new features, or research in this phase._
 enable systematic, repeatable, and extensible quantitative research.
 
 
-- Feature expectancy & stability tooling  
-  - generic tools for expectancy / winrate vs feature quantiles  
-  - rolling performance and feature drift detectors  
-
-- Regime-aware backtesting tooling  
-  - reusable regime segmentation (trend / volatility / session)  
-  - backtest runners producing regime-split metrics and equity curves 
-  
-- Walk-forward & time-sliced validation tooling  
-  - configurable optimization / validation / test windows  
-  - robustness and performance decay scoring utilities 
-
-- R-distribution & trade contribution tooling  
-  - standardized R-distribution analytics  
-  - tail risk and trade contribution analyzers  
-
-- Backtest vs live (dry-run) consistency tooling  
-  - dataset alignment and metric comparison utilities  
-  - divergence detection with alerting hooks  
+- **Strategy comparison & benchmarking**
+  - side-by-side strategy comparison (A/B) on identical datasets
+  - metric-level diffs:
+    - expectancy
+    - win rate
+    - drawdown
+    - profit factor
+    - R distribution
+  - equity curve overlays and relative performance plots
+  - comparison against benchmarks:
+    - buy & hold
+    - index-based benchmark
+    - synthetic baseline (flat / random / risk-free) 
 
 ---
 
