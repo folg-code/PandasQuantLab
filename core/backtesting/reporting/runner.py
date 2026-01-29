@@ -95,7 +95,7 @@ class ReportRunner:
             meta={},
         )
 
-        DashboardRenderer().render(data)
+        DashboardRenderer().render(data, ctx)
 
 
         print("\n✅ Dashboard built successfully\n")

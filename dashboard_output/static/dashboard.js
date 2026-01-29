@@ -5,3 +5,4 @@ const report = window.REPORT_DATA;
 renderKPI(report);
 renderTradeDistribution(report);
 renderConditionalExpectancy(report);
+renderEquityDrawdown(report);

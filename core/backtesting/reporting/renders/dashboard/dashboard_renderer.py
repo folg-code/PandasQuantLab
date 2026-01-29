@@ -22,12 +22,22 @@ class DashboardRenderer:
             autoescape=True,
         )
 
-    def render(self, report_data: dict) -> Path:
+    def render(self, report_data: dict, ctx) -> Path:
         template = self.env.get_template("dashboard.html")
 
         html = template.render(
             report=report_data,
-            report_json=json.dumps(report_data, default=str),
+            report_json=json.dumps(
+                {
+                    **report_data,
+                    "__equity__": {
+                        "time": ctx.trades["entry_time"].astype(str).tolist(),
+                        "equity": ctx.trades["equity"].tolist(),
+                        "drawdown": ctx.trades["drawdown"].tolist(),
+                    }
+                },
+                default=str
+            ),
         )
 
         out = self.output_dir / "dashboard.html"
