@@ -1,6 +1,7 @@
 function hoursToHM(h) {
-  const hours = Math.floor(h);
-  const minutes = Math.round((h - hours) * 60);
+  const x = Number(h) || 0;
+  const hours = Math.floor(x);
+  const minutes = Math.round((x - hours) * 60);
   return `${hours}h ${minutes}m`;
 }
 
@@ -24,9 +25,15 @@ function renderTradeDistribution(report) {
   durRoot.innerHTML = "";
 
   const buckets = rows.map(r => r["Bucket"]);
-  const trades = rows.map(r => r["Trades"]);
-  const shares = rows.map(r => r["Share (%)"]);
-  const durations = rows.map(r => r["Avg duration"] ?? 0); // jeśli masz duration
+
+  // ✅ numbers must use rawValue after materialize()
+  const trades = rows.map(r => Number(window.rawValue(r["Trades"])) || 0);
+
+  // If Share (%) was materialized from a fraction, raw may be 0.xx.
+  // Pie expects proportions, so raw is fine. If raw is already 0-100, still fine (relative weights).
+  const shares = rows.map(r => Number(window.rawValue(r["Share (%)"])) || 0);
+
+  const durations = rows.map(r => Number(window.rawValue(r["Avg duration"])) || 0);
 
   // ==================================================
   // 1️⃣ R DISTRIBUTION (BAR)
@@ -104,12 +111,11 @@ function renderTradeDistribution(report) {
         categoryorder: "array",
         categoryarray: buckets,
       },
-      yaxis: { title: "Duration" },
+      yaxis: { title: "Duration (hours)" },
     },
     { displayModeBar: false, responsive: true }
   );
 
-  // Resize safety
   [countRoot, shareRoot, durRoot].forEach(div =>
     setTimeout(() => Plotly.Plots.resize(div), 0)
   );

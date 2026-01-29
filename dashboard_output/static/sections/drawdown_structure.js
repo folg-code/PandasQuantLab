@@ -14,7 +14,7 @@ function renderDrawdownStructure(report) {
 
   // ---- top 7 deepest drawdowns ----
   const topDD = [...rows]
-    .sort((a, b) => b["Depth"] - a["Depth"])
+    .sort((a, b) => (window.rawValue(b["Depth"]) ?? 0) - (window.rawValue(a["Depth"]) ?? 0))
     .slice(0, 7);
 
   // ==================================================
@@ -34,7 +34,7 @@ function renderDrawdownStructure(report) {
       <tbody>
         ${rows.map(r => `
           <tr>
-            ${cols.map(c => `<td>${r[c]}</td>`).join("")}
+            ${cols.map(c => `<td>${window.displayValue(r[c])}</td>`).join("")}
           </tr>
         `).join("")}
       </tbody>
@@ -65,7 +65,8 @@ function renderDrawdownStructure(report) {
     const ddColor = [];
 
     ddRows.forEach(dd => {
-      const idx = time.findIndex(t => t.startsWith(dd["Start"]));
+      const start = window.displayValue(dd["Start"]);
+      const idx = time.findIndex(t => t.startsWith(start));
       if (idx === -1) return;
 
       const eq = equity[idx];

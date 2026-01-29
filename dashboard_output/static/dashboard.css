@@ -284,4 +284,41 @@ h1, h2 {
   min-height: 260px;
 }
 
+.context-chart > div,
+.time-chart > div {
+  min-height: 260px;
+}
+
+.capital-row > div > div {
+  min-height: 260px;
+}
+
+/* 3/4 + 1/4 row */
+.grid-3-1 {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* 4 tiles row */
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+/* chart tiles look like other dark tiles */
+.tile {
+  background: #0d1117;
+  border-radius: 6px;
+  padding: 8px;
+  overflow: hidden;
+}
+
+/* unify plot height with trade distribution */
+.tile > div {
+  min-height: 260px;
+}
+
 /*# sourceMappingURL=dashboard.css.map */

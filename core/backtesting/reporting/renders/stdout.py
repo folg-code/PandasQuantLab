@@ -400,6 +400,14 @@ class StdoutRenderer:
     # ==================================================
 
     def _fmt(self, v, *, pct: bool = False):
+        """
+        Backward compatible:
+        - if v is materialized dict: return v["display"]
+        - else fallback to legacy behavior (temporary during migration)
+        """
+        if isinstance(v, dict) and "display" in v:
+            return v["display"]
+
         if v is None:
             return "-"
 
