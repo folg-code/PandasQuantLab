@@ -8,3 +8,4 @@ renderConditionalExpectancy(report);
 renderEquityDrawdown(report);
 renderDiagnostics(report);
 renderDrawdownStructure(report);
+renderConditionalEntryTag(report)

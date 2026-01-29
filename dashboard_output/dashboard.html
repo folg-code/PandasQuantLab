@@ -65,6 +65,45 @@
     <h2>Drawdown Structure</h2>
     <div id="drawdown-structure"></div>
   </section>
+  
+  <section class="card full-width">
+    <h2>Conditional Entry Tag Performance</h2>
+  
+    <!-- Selector -->
+    <div class="entry-selector">
+      <label>Entry tag:</label>
+      <select id="conditional-entry-select"></select>
+    </div>
+    
+    <div class="conditional-controls">
+      <label>
+        Min trades:
+        <input type="number" id="min-trades" value="30" min="1">
+      </label>
+    
+      <label>
+        Metric:
+        <select id="metric-select">
+          <option value="Expectancy (USD)">Expectancy</option>
+          <option value="Total PnL">Total PnL</option>
+        </select>
+      </label>
+    
+      <label>
+        Sort:
+        <select id="sort-select">
+          <option value="desc">Best → Worst</option>
+          <option value="asc">Worst → Best</option>
+        </select>
+      </label>
+    </div>
+  
+    <!-- Entry tag summary -->
+    <div id="entry-tag-summary" class="entry-summary"></div>
+  
+    <!-- Context grid -->
+    <div id="conditional-entry-grid" class="conditional-entry-grid"></div>
+  </section>
 
 </div>
 
@@ -75,6 +114,8 @@
 <script src="static/sections/equity_drawdown.js"></script>
 <script src="static/sections/entry_exit_diagnostics.js"></script>
 <script src="static/sections/drawdown_structure.js"></script>
+<script src="static/sections/conditional_entry_tag.js"></script>
+
 
 <!-- BOOTSTRAP -->
 <script src="static/dashboard.js"></script>

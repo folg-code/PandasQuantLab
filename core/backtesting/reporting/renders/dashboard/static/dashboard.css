@@ -128,4 +128,38 @@ h1, h2 {
   padding: 8px;
 }
 
+.entry-selector {
+  margin-bottom: 12px;
+}
+
+.entry-summary {
+  width: 66%;
+  margin-bottom: 24px;
+}
+
+.conditional-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.context-chart,
+.time-chart {
+  grid-column: span 3;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.time-chart {
+  grid-column: span 6;
+}
+
+.context-chart > div,
+.time-chart > div {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
 /*# sourceMappingURL=dashboard.css.map */
