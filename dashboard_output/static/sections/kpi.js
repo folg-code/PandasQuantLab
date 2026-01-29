@@ -17,7 +17,7 @@ function renderKPI(report) {
     card.className = "card";
     card.innerHTML = `
       <h3>${key}</h3>
-      <div style="font-size:28px">${v}${suffix}</div>
+      <div class="kpi-value">${v}${suffix}</div>
     `;
 
     kpiGrid.appendChild(card);

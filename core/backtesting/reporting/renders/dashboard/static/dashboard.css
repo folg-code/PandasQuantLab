@@ -15,11 +15,91 @@ body {
   margin-bottom: 24px;
 }
 
-.kpi-grid {
+.config-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.config-card {
+  background: #161b22;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.config-card h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: #58a6ff;
+}
+
+.config-list {
+  font-size: 13px;
+}
+
+.config-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #30363d;
+}
+
+.config-row:last-child {
+  border-bottom: none;
+}
+
+.config-key {
+  color: #8b949e;
+}
+
+.config-value {
+  color: #e6edf3;
+  text-align: right;
+  max-width: 60%;
+}
+
+.top-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
   gap: 16px;
   margin-bottom: 24px;
+  align-items: stretch;
+}
+
+/* KPI panel fills height */
+.kpi-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Compact KPI grid */
+.kpi-grid.compact {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 12px;
+  flex: 1;
+}
+
+/* KPI cards inside */
+.kpi-grid.compact .card {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.kpi-grid.compact h3 {
+  font-size: 13px;
+  color: #8b949e;
+  margin-bottom: 6px;
+}
+
+.kpi-grid.compact .kpi-value {
+  font-size: 24px;
+  font-weight: 600;
 }
 
 .card {

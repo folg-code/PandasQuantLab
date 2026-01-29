@@ -2,6 +2,7 @@
 const report = window.REPORT_DATA;
 
 // BOOTSTRAP SECTIONS
+renderBacktestConfig(report);
 renderKPI(report);
 renderTradeDistribution(report);
 renderConditionalExpectancy(report);

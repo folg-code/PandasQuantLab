@@ -21,9 +21,22 @@
   <header class="header">
     <h1>Risk & Strategy Dashboard</h1>
   </header>
+  
+  <section class="top-grid">
 
-  <!-- KPI GRID -->
-  <section class="kpi-grid" id="kpi-grid"></section>
+    <!-- LEFT: Backtest Config -->
+    <div class="card">
+      <h2>Backtest Configuration & Assumptions</h2>
+      <div id="backtest-config" class="config-grid"></div>
+    </div>
+  
+    <!-- RIGHT: KPI -->
+    <div class="card kpi-panel">
+      <h2>KPI Metrics</h2>
+      <div class="kpi-grid compact" id="kpi-grid"></div>
+    </div>
+  
+  </section>
 
   <!-- MAIN GRID -->
   <section class="main-grid">
@@ -124,6 +137,7 @@
 </div>
 
 <!-- SECTION RENDERERS -->
+<script src="static/sections/backtest_config.js"></script>
 <script src="static/sections/kpi.js"></script>
 <script src="static/sections/trade_distribution.js"></script>
 <script src="static/sections/conditional_expectancy.js"></script>
