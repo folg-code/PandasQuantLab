@@ -8,17 +8,20 @@ function renderKPI(report) {
   root.innerHTML = "";
 
   const kpis = [
+    // Run info
     "Backtesting from",
     "Backtesting to",
     "Total trades",
     "Trades/day (avg)",
 
+    // Capital
     "Starting balance",
     "Final balance",
     "Absolute profit",
     "Total return (%)",
     "CAGR (%)",
 
+    // Performance
     "Profit factor",
     "Expectancy (USD)",
     "Win rate (%)",
@@ -26,16 +29,31 @@ function renderKPI(report) {
     "Avg loss",
     "Avg win/loss",
 
+    // Risk
     "Max drawdown ($)",
     "Max drawdown (%)",
     "Max daily loss ($)",
     "Max daily loss (%)",
     "Max consecutive wins",
     "Max consecutive losses",
+
+    // Costs & execution (NEW)
+    "Total costs (USD)",
+    "Spread cost (USD)",
+    "Slippage cost (USD)",
+    "Costs (bps)",
+    "Spread (bps)",
+    "Slippage (bps)",
+    "Avg cost/trade (USD)",
+    "Traded volume (USD)",
+    "Avg volume/trade (USD)",
+    "Costs as % of gross PnL",
+    "Entry market share (%)",
+    "Exit market share (%)",
   ];
 
   const rows = kpis
-    .filter(key => payload[key] !== undefined)
+    .filter(key => payload[key] !== undefined && payload[key] !== null)
     .map(key => ({
       Metric: key,
       Value: window.displayValue(payload[key]),
@@ -50,12 +68,16 @@ function renderKPI(report) {
       </tr>
     </thead>
     <tbody>
-      ${rows.map(r => `
+      ${rows
+        .map(
+          r => `
         <tr>
           <td>${r.Metric}</td>
           <td style="text-align:right;">${r.Value}</td>
         </tr>
-      `).join("")}
+      `
+        )
+        .join("")}
     </tbody>
   `;
 
