@@ -6,6 +6,8 @@ import os
 
 from config.backtest import INITIAL_BALANCE, SLIPPAGE
 from config.instrument_meta import INSTRUMENT_META
+from core.backtesting import execution_policy
+from core.backtesting.execution_policy import ExecutionPolicy
 from core.backtesting.simulate_exit_numba import simulate_exit_numba
 from core.domain.risk import position_sizer_fast
 from core.domain.exit_processor import ExitProcessor
@@ -14,8 +16,9 @@ from core.domain.trade_factory import TradeFactory
 
 class Backtester:
 
-    def __init__(self, slippage: float = 0.0):
+    def __init__(self, slippage: float = 0.0, execution_policy: Optional[ExecutionPolicy] = None):
         self.slippage = slippage
+        self.execution_policy = execution_policy or ExecutionPolicy()
 
     def run_backtest(
             self,
@@ -153,6 +156,22 @@ class Backtester:
                     exit_result=exit_result,
                     level_tags=level_tags,
                 )
+
+                # --- execution types for dashboard
+                exit_reason = trade_dict.get("exit_tag")
+
+                has_exit_signal = "exit_signal" in df.columns
+                exit_signal_value = False
+
+                trade_dict.update({
+                    "exec_type_entry": self.execution_policy.entry_type,
+                    "exec_type_tp1": self.execution_policy.tp_type if trade_dict.get("tp1_time") is not None else None,
+                    "exec_type_exit": self.execution_policy.classify_exit_type(
+                        exit_reason=exit_reason,
+                        has_exit_signal=has_exit_signal,
+                        exit_signal_value=exit_signal_value,
+                    ),
+                })
 
                 trades.append(trade_dict)
                 last_exit_by_tag[entry_tag] = exit_time
