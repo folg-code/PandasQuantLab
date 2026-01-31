@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from config.instrument_meta import FX_TRIPLE_ROLLOVER_WEEKDAY, FX_TRIPLE_MULTIPLIER, FX_ROLLOVER_HOUR_UTC, \
-    FX_ROLLOVER_MINUTE_UTC, FINANCING_RATES_PER_DAY, FINANCING_ENABLED
+    FX_ROLLOVER_MINUTE_UTC, FINANCING_RATES_PER_DAY, FINANCING_ENABLED, FINANCING_MODEL, FINANCING_USD_PER_LOT_DAY
 from core.backtesting.execution_policy import EXEC_MARKET, EXEC_LIMIT
 
 
@@ -154,46 +154,74 @@ class TradeCostEngine:
         trade_dict["financing_usd_weekend"] = 0.0
         trade_dict["financing_usd_total"] = 0.0
 
-        if not bool(FINANCING_ENABLED):
+        if not FINANCING_ENABLED:
             return
 
-        sym_rates = (FINANCING_RATES_PER_DAY or {}).get(ctx.symbol)
-        if not sym_rates:
+        entry_time = _to_dt(trade_dict["entry_time"])
+        exit_time = _to_dt(trade_dict["exit_time"])
+
+        rollovers = count_rollovers(entry_time, exit_time, FX_ROLLOVER_HOUR_UTC, FX_ROLLOVER_MINUTE_UTC)
+        if not rollovers:
             return
 
         direction = trade_dict.get("direction")
         if direction not in ("long", "short"):
             return
 
-        rate_per_day = float(sym_rates.get(direction, 0.0))
-        if rate_per_day == 0.0:
-            return
-
-        entry_time = _to_dt(trade_dict["entry_time"])
-        exit_time = _to_dt(trade_dict["exit_time"])
-
-        rollovers = count_rollovers(entry_time, exit_time, int(FX_ROLLOVER_HOUR_UTC), int(FX_ROLLOVER_MINUTE_UTC))
-        if not rollovers:
-            return
-
-        # Use entry notional as notional held approximation
-        notional = float(trade_dict.get("traded_volume_usd_entry", 0.0))
-        if notional <= 0.0:
-            notional = float(trade_dict["entry_price"]) * float(trade_dict["position_size"]) * float(ctx.contract_size)
-
         overnight = 0.0
         weekend = 0.0
 
-        triple_wd = int(FX_TRIPLE_ROLLOVER_WEEKDAY)
-        triple_mult = int(FX_TRIPLE_MULTIPLIER)
+        triple_wd = FX_TRIPLE_ROLLOVER_WEEKDAY
+        triple_mult = FX_TRIPLE_MULTIPLIER
 
-        for t in rollovers:
-            mult = triple_mult if t.weekday() == triple_wd else 1
-            if mult > 1:
-                overnight += notional * rate_per_day * 1
-                weekend += notional * rate_per_day * (mult - 1)
-            else:
-                overnight += notional * rate_per_day * mult
+        # -----------------------------
+        # MODEL: USD PER LOT PER DAY
+        # -----------------------------
+        if FINANCING_MODEL == "usd_per_lot_day":
+            sym = ctx.symbol
+            rates = FINANCING_USD_PER_LOT_DAY.get(sym, {})
+            usd_per_lot = float(rates.get(direction, 0.0))
+            if usd_per_lot == 0.0:
+                return
+
+            lots = float(trade_dict["position_size"])
+
+            for t in rollovers:
+                mult = triple_mult if t.weekday() == triple_wd else 1
+                cost = lots * usd_per_lot * mult
+
+                if mult > 1:
+                    overnight += lots * usd_per_lot
+                    weekend += lots * usd_per_lot * (mult - 1)
+                else:
+                    overnight += cost
+
+        # -----------------------------
+        # MODEL: % OF NOTIONAL
+        # -----------------------------
+        elif FINANCING_MODEL == "notional_rate":
+            sym_rates = FINANCING_RATES_PER_DAY.get(ctx.symbol)
+            if not sym_rates:
+                return
+
+            rate_per_day = float(sym_rates.get(direction, 0.0))
+            if rate_per_day == 0.0:
+                return
+
+            notional = float(trade_dict.get("traded_volume_usd_entry", 0.0))
+            if notional <= 0.0:
+                notional = float(trade_dict["entry_price"]) * float(trade_dict["position_size"]) * float(
+                    ctx.contract_size)
+
+            for t in rollovers:
+                mult = triple_mult if t.weekday() == triple_wd else 1
+                cost = notional * rate_per_day * mult
+
+                if mult > 1:
+                    overnight += notional * rate_per_day
+                    weekend += notional * rate_per_day * (mult - 1)
+                else:
+                    overnight += cost
 
         total = overnight + weekend
 
@@ -201,7 +229,6 @@ class TradeCostEngine:
         trade_dict["financing_usd_weekend"] = float(weekend)
         trade_dict["financing_usd_total"] = float(total)
 
-        # add into total costs
         trade_dict["costs_usd_total"] = float(trade_dict.get("costs_usd_total", 0.0)) + float(total)
 
     @staticmethod

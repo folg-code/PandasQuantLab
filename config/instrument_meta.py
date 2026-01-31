@@ -55,6 +55,7 @@ def get_contract_size(symbol: str) -> float:
 # FINANCING / SWAPS (CFD SPOT)
 # ==================================================
 FINANCING_ENABLED = True
+FINANCING_MODEL = "usd_per_lot_day"  # "usd_per_lot_day" | "notional_rate"
 
 FX_ROLLOVER_HOUR_UTC = 22
 FX_ROLLOVER_MINUTE_UTC = 0
@@ -62,6 +63,4 @@ FX_TRIPLE_ROLLOVER_WEEKDAY = 2  # Wed
 FX_TRIPLE_MULTIPLIER = 3
 
 # daily rate as fraction of notional (vendor-neutral)
-FINANCING_RATES_PER_DAY = {
-    "XAUUSD": {"long": 0.00015, "short": 0.00010},
-}
+FINANCING_USD_PER_LOT_DAY = {"XAUUSD": {"long": 3.5, "short": 2.0}}

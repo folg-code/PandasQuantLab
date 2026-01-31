@@ -10,7 +10,7 @@ MARKET_DATA_PATH = "market_data"
 BACKTEST_DATA_BACKEND = "dukascopy"   # "dukascopy"
 
 TIMERANGE = {
-    "start": "2025-12-01",
+    "start": "2025-01-01",
     "end":   "2025-12-31",
 }
 

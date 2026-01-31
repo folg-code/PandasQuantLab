@@ -187,6 +187,10 @@ class Backtester:
                 last_exit_by_tag[entry_tag] = exit_time
 
         print(f"✅ Finished backtest for {symbol}, {len(trades)} trades.")
+
+        df = pd.DataFrame(trades)
+
+        print(df.loc[df['financing_usd_total'] > 0])
         return pd.DataFrame(trades)
 
     # -----------------------------
