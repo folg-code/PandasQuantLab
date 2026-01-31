@@ -4,6 +4,7 @@ A **modular, end-to-end quantitative research and execution framework** written 
 
 ## What This Project Showcases
 
+
 ### Software Engineering
 - clean, layered architecture
 - modular and extensible design

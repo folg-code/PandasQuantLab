@@ -27,7 +27,7 @@ class ExitLogicDiagnosticsSection(ReportSection):
         total_trades = int(len(trades))
         by_tag = list(trades.groupby("exit_compound_tag"))
 
-        pnl_sum_by_tag = {tag: float(g["pnl_usd"].sum()) for tag, g in by_tag}
+        pnl_sum_by_tag = {tag: float(g["pnl_net_usd"].sum()) for tag, g in by_tag}
         dd_sum_by_tag = {tag: float(self._dd_contribution(g)) for tag, g in by_tag}
 
         pnl_denom = sum(abs(v) for v in pnl_sum_by_tag.values()) or np.nan
@@ -36,7 +36,7 @@ class ExitLogicDiagnosticsSection(ReportSection):
         rows = []
 
         for tag, g in by_tag:
-            pnl = g["pnl_usd"]
+            pnl = g["pnl_net_usd"]
 
             trades_n = int(len(g))
             pnl_sum = float(pnl.sum())
@@ -96,7 +96,7 @@ class ExitLogicDiagnosticsSection(ReportSection):
 
     @staticmethod
     def _dd_contribution(group_trades):
-        equity = group_trades["pnl_usd"].cumsum()
+        equity = group_trades["pnl_net_usd"].cumsum()
         peak = equity.cummax()
         dd = peak - equity
         return float(dd.max())

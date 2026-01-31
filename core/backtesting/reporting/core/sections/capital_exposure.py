@@ -90,8 +90,8 @@ class CapitalExposureSection(ReportSection):
         daily = (
             df.groupby("day")
             .agg(
-                trades=("pnl_usd", "count"),
-                pnl=("pnl_usd", "sum"),
+                trades=("pnl_net_usd", "count"),
+                pnl=("pnl_net_usd", "sum"),
                 max_dd=("drawdown", "min"),
             )
             .reset_index()

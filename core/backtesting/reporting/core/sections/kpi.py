@@ -25,7 +25,7 @@ class CorePerformanceSection(ReportSection):
         trades_per_day = self._trades_per_day(start, end, total_trades)
 
         equity = trades["equity"].astype(float)
-        pnl = trades["pnl_usd"].astype(float)
+        pnl = trades["pnl_net_usd"].astype(float)
 
         final_balance = float(equity.iloc[-1])
         absolute_profit = final_balance - initial_balance
@@ -172,9 +172,9 @@ class CorePerformanceSection(ReportSection):
         max_balance = float(equity.max())
         min_balance = float(equity.min())
 
-        tmp = trades[["exit_time", "pnl_usd"]].copy()
+        tmp = trades[["exit_time", "pnl_net_usd"]].copy()
         tmp["exit_day"] = tmp["exit_time"].dt.date
-        daily_pnl = tmp.groupby("exit_day")["pnl_usd"].sum()
+        daily_pnl = tmp.groupby("exit_day")["pnl_net_usd"].sum()
 
         worst_daily = float(daily_pnl.min()) if not daily_pnl.empty else None
         max_daily_loss = float(abs(worst_daily)) if worst_daily is not None else None
@@ -247,7 +247,7 @@ class CorePerformanceSection(ReportSection):
         # costs as fraction of gross pnl (0..1)
         costs_frac_gross = None
         if costs_total is not None and gross_pnl_total != 0.0:
-            costs_frac_gross = float(costs_total / gross_pnl_total)
+            costs_frac_gross = float(costs_total / (gross_pnl_total + costs_total))
 
         # market shares as fractions (0..1)
         entry_market_share = None

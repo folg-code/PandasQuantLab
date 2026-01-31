@@ -152,7 +152,7 @@ class DrawdownStructureSection(ReportSection):
                     if dd["recovery_time"] is not None else None
                 ),
                 "Trades during DD": int(len(dd_trades)),
-                "PnL during DD": float(dd_trades["pnl_usd"].sum()),
+                "PnL during DD": float(dd_trades["pnl_net_usd"].sum()),
             })
 
         return {

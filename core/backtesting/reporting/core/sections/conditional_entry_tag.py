@@ -69,7 +69,7 @@ class ConditionalEntryTagPerformanceSection(ReportSection):
             if ctx_val is None:
                 continue
 
-            pnl = g["pnl_usd"]
+            pnl = g["pnl_net_usd"]
 
             rows.append({
                 "Entry tag": str(tag),

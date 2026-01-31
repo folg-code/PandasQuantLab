@@ -93,7 +93,7 @@ class ConditionalExpectancySection(ReportSection):
             if value is None:
                 continue
 
-            pnl = g["pnl_usd"]
+            pnl = g["pnl_net_usd"]
 
             rows.append({
                 group_col: str(value),
