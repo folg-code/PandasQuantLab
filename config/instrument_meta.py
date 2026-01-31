@@ -64,3 +64,7 @@ FX_TRIPLE_MULTIPLIER = 3
 
 # daily rate as fraction of notional (vendor-neutral)
 FINANCING_USD_PER_LOT_DAY = {"XAUUSD": {"long": 3.5, "short": 2.0}}
+
+FINANCING_RATES_PER_DAY = {
+    "XAUUSD": {"long": 0.00015, "short": 0.00010},
+}

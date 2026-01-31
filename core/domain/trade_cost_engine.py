@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from config.instrument_meta import FX_TRIPLE_ROLLOVER_WEEKDAY, FX_TRIPLE_MULTIPLIER, FX_ROLLOVER_HOUR_UTC, \
-    FX_ROLLOVER_MINUTE_UTC, FINANCING_RATES_PER_DAY, FINANCING_ENABLED, FINANCING_MODEL, FINANCING_USD_PER_LOT_DAY
+    FX_ROLLOVER_MINUTE_UTC, FINANCING_ENABLED, FINANCING_MODEL, FINANCING_USD_PER_LOT_DAY, FINANCING_RATES_PER_DAY
 from core.backtesting.execution_policy import EXEC_MARKET, EXEC_LIMIT
 
 
@@ -174,9 +174,7 @@ class TradeCostEngine:
         triple_wd = FX_TRIPLE_ROLLOVER_WEEKDAY
         triple_mult = FX_TRIPLE_MULTIPLIER
 
-        # -----------------------------
-        # MODEL: USD PER LOT PER DAY
-        # -----------------------------
+
         if FINANCING_MODEL == "usd_per_lot_day":
             sym = ctx.symbol
             rates = FINANCING_USD_PER_LOT_DAY.get(sym, {})

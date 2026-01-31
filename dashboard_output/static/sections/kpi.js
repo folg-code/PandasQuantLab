@@ -43,17 +43,14 @@ function renderKPI(report) {
       title: "Costs & execution",
       metrics: [
         "Total costs (USD)",
+
         "Spread cost (USD)",
         "Slippage cost (USD)",
-        "Costs (bps)",
-        "Spread (bps)",
-        "Slippage (bps)",
-        "Avg cost/trade (USD)",
-        "Traded volume (USD)",
-        "Avg volume/trade (USD)",
-        "Costs as % of gross PnL",
-        "Entry market share (%)",
-        "Exit market share (%)",
+        "Overnight cost (USD)",
+        "Overweekend cost (USD)",
+
+        "Avg cost/trade (bps)",
+        "Avg volume/trade (lots)",
       ],
     },
   ];
