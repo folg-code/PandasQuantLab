@@ -12,25 +12,19 @@ from core.backtesting.execution_policy import ExecutionPolicy, EXEC_MARKET, EXEC
 from core.backtesting.simulate_exit_numba import simulate_exit_numba
 from core.domain.risk import position_sizer_fast
 from core.domain.exit_processor import ExitProcessor
+from core.domain.trade_cost_engine import TradeCostEngine, InstrumentCtx
 from core.domain.trade_factory import TradeFactory
 
 
-@dataclass(frozen=True)
-class InstrumentCtx:
-    symbol: str
-    point_size: float
-    pip_value: float
-    contract_size: float
-    spread_abs: float
-    half_spread: float
-    slippage_abs: float
-
-
 class Backtester:
-
-    def __init__(self, slippage: float = 0.0, execution_policy: Optional[ExecutionPolicy] = None):
+    def __init__(self,
+                 slippage: float = 0.0,
+                 execution_policy: Optional[ExecutionPolicy] = None,
+                 cost_engine: Optional[TradeCostEngine] = None
+                 ):
         self.slippage = slippage
         self.execution_policy = execution_policy or ExecutionPolicy()
+        self.cost_engine = cost_engine or TradeCostEngine(self.execution_policy)
 
     def run_backtest(self, df: pd.DataFrame, symbol: Optional[str] = None) -> pd.DataFrame:
         if symbol:
@@ -44,10 +38,8 @@ class Backtester:
 
         return pd.concat(all_trades).sort_values(by="exit_time") if all_trades else pd.DataFrame()
 
-    # -----------------------------
-    # Context / Config
-    # -----------------------------
-    def _instrument_ctx(self, symbol: str) -> InstrumentCtx:
+    @staticmethod
+    def _instrument_ctx(symbol: str) -> InstrumentCtx:
         meta = INSTRUMENT_META[symbol]
         point_size = float(meta["point"])
         pip_value = float(meta["pip_value"])
@@ -56,7 +48,6 @@ class Backtester:
         spread_abs = get_spread_abs(symbol, point_size)
         half_spread = 0.5 * spread_abs
 
-        # slippage in abs price units (kept consistent with your prior approach)
         slippage_abs = float(SLIPPAGE) * point_size
 
         return InstrumentCtx(
@@ -68,85 +59,6 @@ class Backtester:
             half_spread=half_spread,
             slippage_abs=slippage_abs,
         )
-
-    # -----------------------------
-    # Dashboard fields helpers
-    # -----------------------------
-    def _attach_execution_types(self, trade_dict: dict, df: pd.DataFrame) -> None:
-        exit_reason = trade_dict.get("exit_tag")
-        has_exit_signal = "exit_signal" in df.columns
-
-        # Hook: will be wired once exit_pos is available or time->index mapping is added
-        exit_signal_value = False
-
-        trade_dict.update({
-            "exec_type_entry": self.execution_policy.entry_type,
-            "exec_type_tp1": self.execution_policy.tp_type if trade_dict.get("tp1_time") is not None else None,
-            "exec_type_exit": self.execution_policy.classify_exit_type(
-                exit_reason=exit_reason,
-                has_exit_signal=has_exit_signal,
-                exit_signal_value=exit_signal_value,
-            ),
-        })
-
-    def _attach_traded_volume(self, trade_dict: dict, ctx: InstrumentCtx) -> None:
-        position_size = float(trade_dict["position_size"])
-
-        entry_notional = float(trade_dict["entry_price"]) * position_size * ctx.contract_size
-
-        tp1_executed = trade_dict.get("tp1_time") is not None
-        exit_fraction = 0.5 if tp1_executed else 1.0
-
-        exit_notional = float(trade_dict["exit_price"]) * position_size * ctx.contract_size * exit_fraction
-
-        tp1_notional = 0.0
-        if tp1_executed and trade_dict.get("tp1_price") is not None:
-            tp1_notional = float(trade_dict["tp1_price"]) * position_size * ctx.contract_size * 0.5
-
-        trade_dict.update({
-            "traded_volume_usd_entry": entry_notional,
-            "traded_volume_usd_tp1": tp1_notional,
-            "traded_volume_usd_exit": exit_notional,
-            "traded_volume_usd_total": entry_notional + tp1_notional + exit_notional,
-        })
-
-    def _attach_costs(self, trade_dict: dict, ctx: InstrumentCtx) -> None:
-        position_size = float(trade_dict["position_size"])
-
-        tp1_executed = trade_dict.get("tp1_time") is not None
-        entry_fraction = 1.0
-        tp1_fraction = 0.5 if tp1_executed else 0.0
-        exit_fraction = 0.5 if tp1_executed else 1.0
-
-        exec_entry = trade_dict.get("exec_type_entry") or EXEC_MARKET
-        exec_exit = trade_dict.get("exec_type_exit") or EXEC_LIMIT
-
-        # Spread costs: half spread per fill
-        spread_usd_entry = price_abs_to_usd(ctx.half_spread, ctx.point_size, ctx.pip_value, position_size, entry_fraction)
-        spread_usd_tp1 = price_abs_to_usd(ctx.half_spread, ctx.point_size, ctx.pip_value, position_size, tp1_fraction) if tp1_executed else 0.0
-        spread_usd_exit = price_abs_to_usd(ctx.half_spread, ctx.point_size, ctx.pip_value, position_size, exit_fraction)
-
-        # Slippage costs: only if market
-        slip_usd_entry = price_abs_to_usd(ctx.slippage_abs, ctx.point_size, ctx.pip_value, position_size, entry_fraction) if exec_entry == EXEC_MARKET else 0.0
-        slip_usd_tp1 = 0.0
-        slip_usd_exit = price_abs_to_usd(ctx.slippage_abs, ctx.point_size, ctx.pip_value, position_size, exit_fraction) if exec_exit == EXEC_MARKET else 0.0
-
-        trade_dict.update({
-            "spread_usd_entry": spread_usd_entry,
-            "spread_usd_tp1": spread_usd_tp1,
-            "spread_usd_exit": spread_usd_exit,
-            "spread_usd_total": spread_usd_entry + spread_usd_tp1 + spread_usd_exit,
-
-            "slippage_usd_entry": slip_usd_entry,
-            "slippage_usd_tp1": slip_usd_tp1,
-            "slippage_usd_exit": slip_usd_exit,
-            "slippage_usd_total": slip_usd_entry + slip_usd_tp1 + slip_usd_exit,
-
-            "costs_usd_total": (spread_usd_entry + spread_usd_tp1 + spread_usd_exit) + (slip_usd_entry + slip_usd_tp1 + slip_usd_exit),
-        })
-
-    def _attach_net_pnl(self, trade_dict: dict) -> None:
-        trade_dict["pnl_net_usd"] = float(trade_dict.get("pnl_usd", 0.0)) - float(trade_dict.get("costs_usd_total", 0.0))
 
     # -----------------------------
     # Backtest per symbol
@@ -269,11 +181,7 @@ class Backtester:
                     level_tags=level_tags,
                 )
 
-                # dashboard fields
-                self._attach_execution_types(trade_dict, df)
-                self._attach_traded_volume(trade_dict, ctx)
-                self._attach_costs(trade_dict, ctx)
-                self._attach_net_pnl(trade_dict)
+                self.cost_engine.enrich(trade_dict, df=df, ctx=ctx)
 
                 trades.append(trade_dict)
                 last_exit_by_tag[entry_tag] = exit_time

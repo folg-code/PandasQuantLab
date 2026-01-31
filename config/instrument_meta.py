@@ -50,3 +50,18 @@ def price_abs_to_usd(
 def get_contract_size(symbol: str) -> float:
     meta = INSTRUMENT_META.get(symbol, {})
     return float(meta.get("contract_size", 1.0))
+
+# ==================================================
+# FINANCING / SWAPS (CFD SPOT)
+# ==================================================
+FINANCING_ENABLED = True
+
+FX_ROLLOVER_HOUR_UTC = 22
+FX_ROLLOVER_MINUTE_UTC = 0
+FX_TRIPLE_ROLLOVER_WEEKDAY = 2  # Wed
+FX_TRIPLE_MULTIPLIER = 3
+
+# daily rate as fraction of notional (vendor-neutral)
+FINANCING_RATES_PER_DAY = {
+    "XAUUSD": {"long": 0.00015, "short": 0.00010},
+}
