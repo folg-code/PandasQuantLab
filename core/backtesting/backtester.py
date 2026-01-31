@@ -5,7 +5,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 
 from config.backtest import INITIAL_BALANCE, SLIPPAGE
-from config.instrument_meta import INSTRUMENT_META
+from config.instrument_meta import INSTRUMENT_META, get_contract_size
 from core.backtesting import execution_policy
 from core.backtesting.execution_policy import ExecutionPolicy
 from core.backtesting.simulate_exit_numba import simulate_exit_numba
@@ -171,6 +171,28 @@ class Backtester:
                         has_exit_signal=has_exit_signal,
                         exit_signal_value=exit_signal_value,
                     ),
+                })
+
+                contract_size = get_contract_size(symbol)
+
+                entry_notional = float(trade_dict["entry_price"]) * float(trade_dict["position_size"]) * contract_size
+
+                tp1_executed = trade_dict.get("tp1_time") is not None
+                exit_fraction = 0.5 if tp1_executed else 1.0
+
+                exit_notional = float(trade_dict["exit_price"]) * float(
+                    trade_dict["position_size"]) * contract_size * exit_fraction
+
+                tp1_notional = 0.0
+                if tp1_executed and trade_dict.get("tp1_price") is not None:
+                    tp1_notional = float(trade_dict["tp1_price"]) * float(
+                        trade_dict["position_size"]) * contract_size * 0.5
+
+                trade_dict.update({
+                    "traded_volume_usd_entry": entry_notional,
+                    "traded_volume_usd_tp1": tp1_notional,
+                    "traded_volume_usd_exit": exit_notional,
+                    "traded_volume_usd_total": entry_notional + tp1_notional + exit_notional,
                 })
 
                 trades.append(trade_dict)
