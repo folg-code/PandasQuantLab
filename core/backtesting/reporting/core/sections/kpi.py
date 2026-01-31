@@ -32,6 +32,7 @@ class CorePerformanceSection(ReportSection):
 
         total_return = self._total_return_frac(absolute_profit, initial_balance)  # 0..1
         cagr = self._cagr(initial_balance, final_balance, start, end)             # 0..1
+        market = self._market_change(ctx, trades)
 
         perf = self._win_loss_stats(pnl)              # returns win_rate (0..1)
         risk = self._risk_stats(trades, equity, initial_balance)  # pct as 0..1
@@ -51,6 +52,7 @@ class CorePerformanceSection(ReportSection):
             "Absolute profit": {"raw": float(absolute_profit), "kind": "money"},
             "Total return (%)": {"raw": total_return, "kind": "pct"},
             "CAGR (%)": {"raw": cagr, "kind": "pct"},
+            "Market change (%)": {"raw": market["change_frac"], "kind": "pct"},
 
             # Performance
             "Profit factor": {"raw": perf["profit_factor"], "kind": "num"},
@@ -105,6 +107,57 @@ class CorePerformanceSection(ReportSection):
             return None
         r = absolute_profit / initial_balance
         return float(r) if np.isfinite(r) else None
+
+    @staticmethod
+    def _market_change(ctx: ReportContext, trades: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Market move between backtest start and end.
+
+        Prefer source-of-truth price series if available in ctx, otherwise fall back to:
+          - first trade entry_price and last trade exit_price (proxy).
+        """
+        start = trades["entry_time"].iloc[0]
+        end = trades["exit_time"].iloc[-1]
+
+        price_start = None
+        price_end = None
+
+        for attr in ("market_df", "df", "prices_df"):
+            mdf = getattr(ctx, attr, None)
+            if mdf is None or not hasattr(mdf, "columns"):
+                continue
+            if "time" not in mdf.columns or "close" not in mdf.columns:
+                continue
+
+            tmp = mdf.copy()
+            tmp["time"] = pd.to_datetime(tmp["time"], utc=True)
+            tmp = tmp.sort_values("time")
+
+            s = tmp.loc[tmp["time"] >= start, "close"]
+            e = tmp.loc[tmp["time"] <= end, "close"]
+
+            if len(s) and len(e):
+                price_start = float(s.iloc[0])
+                price_end = float(e.iloc[-1])
+                break
+
+        if price_start is None or price_end is None:
+            if "entry_price" in trades.columns and "exit_price" in trades.columns:
+                price_start = float(trades["entry_price"].iloc[0])
+                price_end = float(trades["exit_price"].iloc[-1])
+
+        if price_start is None or price_end is None or price_start == 0:
+            return {"change_abs": None, "change_frac": None}
+
+        change_abs = float(price_end - price_start)
+        change_frac = float((price_end / price_start) - 1.0)
+
+        if not np.isfinite(change_abs):
+            change_abs = None
+        if not np.isfinite(change_frac):
+            change_frac = None
+
+        return {"change_abs": change_abs, "change_frac": change_frac}
 
     @staticmethod
     def _cagr(

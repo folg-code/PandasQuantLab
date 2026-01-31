@@ -42,7 +42,7 @@ STRATEGY_NAME = "Sample "
 STRATEGY_DESCRIPTION = "Sample strategy for dashboard showcase"
 
 # Strategy class locator (string used by your loader)
-STRATEGY_CLASS = "Samplestrategy"
+STRATEGY_CLASS = "Samplestrategyreport"
 STARTUP_CANDLE_COUNT = 600
 
 SYMBOLS = [

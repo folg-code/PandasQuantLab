@@ -20,6 +20,7 @@ function renderKPI(report) {
         "Absolute profit",
         "Total return (%)",
         "CAGR (%)",
+        "Market change (%)",
       ],
     },
     {
