@@ -5,27 +5,11 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 
 from config.backtest import INITIAL_BALANCE, SLIPPAGE
+from config.instrument_meta import INSTRUMENT_META
 from core.backtesting.simulate_exit_numba import simulate_exit_numba
 from core.domain.risk import position_sizer_fast
 from core.domain.exit_processor import ExitProcessor
 from core.domain.trade_factory import TradeFactory
-
-INSTRUMENT_META = {
-    "EURUSD": {
-        "point": 0.0001,
-        "pip_value": 10.0,
-    },
-    "XAUUSD": {
-        "point": 0.01,
-        "pip_value": 1.0,
-    },
-    "USTECH100": {
-        "point": 0.01,
-        "pip_value": 1.0,
-        "contract_size": 1,
-    }
-
-}
 
 
 class Backtester:
