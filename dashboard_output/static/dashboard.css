@@ -15,6 +15,39 @@ body {
   margin-bottom: 24px;
 }
 
+.bt-info-grid {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.bt-info-card {
+  flex: 1 1 0;
+  min-width: 280px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.bt-info-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  opacity: 0.95;
+}
+
+.bt-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.bt-info-table th,
+.bt-info-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .config-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -61,7 +94,7 @@ body {
 
 .top-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-bottom: 24px;
   align-items: stretch;

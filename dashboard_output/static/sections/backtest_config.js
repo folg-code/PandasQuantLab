@@ -2,46 +2,59 @@ function renderBacktestConfig(report) {
   const root = document.getElementById("backtest-info-table");
   if (!root) return;
 
-  const section = report["Backtest Configuration & Assumptions"];
-  if (!section) return;
+  const payload = report["Backtest Configuration & Assumptions"];
+  if (!payload) return;
 
   root.innerHTML = "";
 
-  // spłaszcz {"Market & Data": {...}, "Execution Model": {...}} -> [{Section, Key, Value}]
-  const rows = [];
-  Object.entries(section).forEach(([groupName, groupObj]) => {
-    if (!groupObj) return;
-    Object.entries(groupObj).forEach(([k, v]) => {
-      rows.push({
-        Section: groupName,
-        Metric: k,
-        Value: window.displayValue ? window.displayValue(v) : String(v),
-      });
-    });
-  });
-
-  const table = document.createElement("table");
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th>Section</th>
-        <th>Metric</th>
-        <th style="text-align:right;">Value</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows.map(r => `
-        <tr>
-          <td>${r.Section}</td>
-          <td>${r.Metric}</td>
-          <td style="text-align:right;">${r.Value}</td>
-        </tr>
-      `).join("")}
-    </tbody>
-  `;
+  const sections = [
+    { key: "Market & Data", title: "Market & Data" },
+    { key: "Execution Model", title: "Execution Model" },
+    { key: "Capital Model", title: "Capital Model" },
+  ];
 
   const wrap = document.createElement("div");
-  wrap.className = "info-table";
-  wrap.appendChild(table);
+  wrap.className = "bt-info-grid";
+
+  sections.forEach(sec => {
+    const block = payload[sec.key];
+    if (!block) return;
+
+    const rows = Object.keys(block).map(metric => ({
+      Metric: metric,
+      Value: window.displayValue(block[metric]),
+    }));
+
+    const card = document.createElement("div");
+    card.className = "bt-info-card";
+
+    const title = document.createElement("div");
+    title.className = "bt-info-title";
+    title.textContent = sec.title;
+
+    const table = document.createElement("table");
+    table.className = "bt-info-table";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th style="text-align:right;">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td>${r.Metric}</td>
+            <td style="text-align:right;">${r.Value}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    `;
+
+    card.appendChild(title);
+    card.appendChild(table);
+    wrap.appendChild(card);
+  });
+
   root.appendChild(wrap);
 }
