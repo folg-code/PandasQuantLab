@@ -97,7 +97,29 @@ class ConditionalEntryTagPerformanceSection(ReportSection):
             "returns", "entry_tag", "exit_tag",
             "exit_level_tag", "duration", "window",
             "equity", "equity_peak", "drawdown",
-            "hour", "weekday"
+            "hour", "weekday",
+
+            "exec_type_entry",
+            "exec_type_tp1",
+            "exec_type_exit",
+
+            "traded_volume_usd_entry",
+            "traded_volume_usd_tp1",
+            "traded_volume_usd_exit",
+            "traded_volume_usd_total",
+
+            "spread_usd_entry",
+            "spread_usd_tp1",
+            "spread_usd_exit",
+            "spread_usd_total",
+
+            "slippage_usd_entry",
+            "slippage_usd_tp1",
+            "slippage_usd_exit",
+            "slippage_usd_total",
+
+            "costs_usd_total",
+            "pnl_net_usd",
         }
 
         issues = []
