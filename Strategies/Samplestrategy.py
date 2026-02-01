@@ -5,7 +5,7 @@ from Strategies.utils.decorators import informative
 from core.backtesting.reporting.core.context import ContextSpec
 from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
 from core.strategy.BaseStrategy import BaseStrategy
-from FeatureEngineering.MarketStructure.engine import MarketStructureEngine
+from TechnicalAnalysis.MarketStructure.engine import MarketStructureEngine
 
 
 class Samplestrategy(BaseStrategy):

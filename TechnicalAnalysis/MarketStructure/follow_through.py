@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from FeatureEngineering.MarketStructure.utils.ensure_indicator import ensure_indicator
+from TechnicalAnalysis.MarketStructure.utils.ensure_indicator import ensure_indicator
 
 
 class PriceActionFollowThroughBatched:

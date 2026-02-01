@@ -1,4 +1,4 @@
-#FeatureEngineering/PointOfInterestSMC/utis/detect.py
+#TechnicalAnalysis/PointOfInterestSMC/utis/detect.py
 
 import numpy as np
 import pandas as pd

@@ -1,4 +1,4 @@
-#FeatureEngineering/PointOfInterestSMC/core.py
+#TechnicalAnalysis/PointOfInterestSMC/core.py
 
 import re
 

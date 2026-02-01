@@ -1,4 +1,4 @@
-# FeatureEngineering/PriceStructureZones/reaction.py
+# TechnicalAnalysis/PriceStructureZones/reaction.py
 
 import pandas as pd
 import numpy as np

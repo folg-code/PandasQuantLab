@@ -1,4 +1,4 @@
-# FeatureEngineering/PriceStructureZones/validation.py
+# TechnicalAnalysis/PriceStructureZones/validation.py
 
 import pandas as pd
 from .models import ZoneSet

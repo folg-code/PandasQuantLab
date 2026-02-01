@@ -1,4 +1,4 @@
-#FeatureEngineering/SessionsSMC/detection.py
+#TechnicalAnalysis/SessionsSMC/detection.py
 
 
 import numpy as np

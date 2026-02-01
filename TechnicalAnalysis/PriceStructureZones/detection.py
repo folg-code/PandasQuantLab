@@ -1,4 +1,4 @@
-# FeatureEngineering/PriceStructureZones/detection.py
+# TechnicalAnalysis/PriceStructureZones/detection.py
 
 import pandas as pd
 from .models import ZoneSet
