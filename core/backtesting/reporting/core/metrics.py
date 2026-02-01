@@ -10,12 +10,12 @@ class ExpectancyMetric(BaseMetric):
         if df.empty:
             return 0.0
 
-        wins = df[df["pnl_usd"] > 0]
-        losses = df[df["pnl_usd"] < 0]
+        wins = df[df["pnl_net_usd"] > 0]
+        losses = df[df["pnl_net_usd"] < 0]
 
         win_rate = len(wins) / len(df)
-        avg_win = wins["pnl_usd"].mean() if not wins.empty else 0.0
-        avg_loss = losses["pnl_usd"].mean() if not losses.empty else 0.0
+        avg_win = wins["pnl_net_usd"].mean() if not wins.empty else 0.0
+        avg_loss = losses["pnl_net_usd"].mean() if not losses.empty else 0.0
 
         return win_rate * avg_win - (1 - win_rate) * abs(avg_loss)
 

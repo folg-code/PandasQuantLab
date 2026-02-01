@@ -20,7 +20,7 @@ class EquityPreparer:
 
         df = trades.copy().sort_values("exit_time")
 
-        df["equity"] = self.initial_balance + df["pnl_usd"].cumsum()
+        df["equity"] = self.initial_balance + df["pnl_net_usd"].cumsum()
         df["equity_peak"] = df["equity"].cummax()
         df["drawdown"] = df["equity_peak"] - df["equity"]
 

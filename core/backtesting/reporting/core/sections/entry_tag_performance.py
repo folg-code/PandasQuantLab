@@ -25,7 +25,7 @@ class EntryTagPerformanceSection(ReportSection):
         total_trades = int(len(trades))
 
         by_tag = list(trades.groupby("entry_tag"))
-        pnl_sum_by_tag = {tag: float(g["pnl_usd"].sum()) for tag, g in by_tag}
+        pnl_sum_by_tag = {tag: float(g["pnl_net_usd"].sum()) for tag, g in by_tag}
         dd_sum_by_tag = {tag: float(self._dd_contribution(g)) for tag, g in by_tag}
 
         pnl_denom = sum(abs(v) for v in pnl_sum_by_tag.values()) or np.nan
@@ -34,7 +34,7 @@ class EntryTagPerformanceSection(ReportSection):
         results = []
 
         for tag, g in by_tag:
-            pnl = g["pnl_usd"]
+            pnl = g["pnl_net_usd"]
             wins = pnl[pnl > 0]
             losses = pnl[pnl < 0]
 
@@ -103,7 +103,7 @@ class EntryTagPerformanceSection(ReportSection):
         Approximate drawdown contribution as worst peak-to-trough PnL
         within this entry tag.
         """
-        equity = trades["pnl_usd"].cumsum()
+        equity = trades["pnl_net_usd"].cumsum()
         peak = equity.cummax()
         dd = peak - equity
         return float(dd.max())

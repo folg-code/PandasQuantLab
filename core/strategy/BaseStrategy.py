@@ -8,8 +8,8 @@ import pandas as pd
 from plotly.graph_objs import volume
 
 from config.backtest import INITIAL_BALANCE
+from config.instrument_meta import INSTRUMENT_META
 from config.live import MAX_RISK_PER_TRADE
-from core.backtesting.backtester import INSTRUMENT_META
 from core.backtesting.reporting.config.report_config import ReportConfig
 from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
 from core.domain.risk import position_sizer_fast

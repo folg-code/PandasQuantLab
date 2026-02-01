@@ -19,7 +19,7 @@ class TailRiskSection(ReportSection):
         if trades.empty:
             return {"error": "No trades available"}
 
-        pnl = trades["pnl_usd"].astype(float)
+        pnl = trades["pnl_net_usd"].astype(float)
 
         total_pnl = pnl.sum()
 

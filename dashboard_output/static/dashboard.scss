@@ -25,6 +25,39 @@ body {
 // Backtest Configuration
 // ==========================
 
+.bt-info-grid {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.bt-info-card {
+  flex: 1 1 0;
+  min-width: 280px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.02);
+}
+
+.bt-info-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  opacity: 0.95;
+}
+
+.bt-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.bt-info-table th,
+.bt-info-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
 .config-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -75,36 +108,46 @@ body {
 
 .top-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-bottom: 24px;
   align-items: stretch;
-
-.kpi-table, .info-table {
-  width: 100%;
-  overflow-x: auto;
 }
 
-.kpi-table table, .info-table table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
+/* KPI panel fills height */
+.kpi-panel {
+  display: flex;
+  flex-direction: column;
 }
 
-.kpi-table th, .kpi-table td,
-.info-table th, .info-table td {
-  padding: 6px 8px;
-  border-bottom: 1px solid #30363d;
+/* Compact KPI grid */
+.kpi-grid.compact {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 12px;
+  flex: 1;
 }
 
-.kpi-table th, .info-table th {
-  text-align: left;
-  color: #8b949e;
+/* KPI cards inside */
+.kpi-grid.compact .card {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+
+.kpi-grid.compact h3 {
+  font-size: 13px;
+  color: $muted;
+  margin-bottom: 6px;
+}
+
+.kpi-grid.compact .kpi-value {
+  font-size: 24px;
   font-weight: 600;
-}
-
-.kpi-table td, .info-table td {
-  text-align: right;
 }
 
 // ==========================
