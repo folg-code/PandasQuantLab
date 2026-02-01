@@ -1,4 +1,4 @@
-# TechnicalAnalysis/PriceStructureZones/models.py
+# FeatureEngineering/PriceStructureZones/models.py
 
 from __future__ import annotations
 from dataclasses import dataclass

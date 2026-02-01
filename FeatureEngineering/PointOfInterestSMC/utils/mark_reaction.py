@@ -1,8 +1,8 @@
-#TechnicalAnalysis/PointOfInterestSMC/utis/mark_reaction.py
+#FeatureEngineering/PointOfInterestSMC/utis/mark_reaction.py
 import numpy as np
 import pandas as pd
 
-from TechnicalAnalysis.Indicators import indicators as qtpylib
+from FeatureEngineering.Indicators import indicators as qtpylib
 
 import time
 from datetime import datetime

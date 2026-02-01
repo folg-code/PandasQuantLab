@@ -1,4 +1,4 @@
-#TechnicalAnalysis/SessionsSMC/core.py
+#FeatureEngineering/SessionsSMC/core.py
 
 import numpy as np
 import pandas as pd
