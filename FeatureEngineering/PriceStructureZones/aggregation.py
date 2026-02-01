@@ -1,4 +1,4 @@
-# TechnicalAnalysis/PriceStructureZones/aggregation.py
+# FeatureEngineering/PriceStructureZones/aggregation.py
 
 import pandas as pd
 import numpy as np

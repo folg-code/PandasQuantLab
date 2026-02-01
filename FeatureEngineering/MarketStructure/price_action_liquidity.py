@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from typing import Literal
-from TechnicalAnalysis.MarketStructure.utils.detect_level_reaction import detect_level_reaction
+from FeatureEngineering.MarketStructure.utils.detect_level_reaction import detect_level_reaction
 
 
 class PriceActionLiquidityResponseBatched:
