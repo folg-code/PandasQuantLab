@@ -92,4 +92,5 @@ class DukascopyBackend(MarketDataBackend):
             .reset_index(drop=True)
         )
 
-        return df[list(required_columns)]
+        ordered = ["time", "open", "high", "low", "close", "volume"]
+        return df[ordered]
