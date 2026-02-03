@@ -1,9 +1,9 @@
 import MetaTrader5 as mt5
 import pandas as pd
 
-from core.data_provider.clients.mt5_provider import (
+from core.data_provider.clients.mt5_client import (
     lookback_to_bars,
-    LiveMT5Provider,
+    MT5Client,
 )
 from core.live_trading.engine import LiveEngine
 from core.live_trading.strategy_adapter import LiveStrategyAdapter
@@ -78,7 +78,7 @@ class LiveTradingRunner:
     # 3️⃣ INFORMATIVE PROVIDER
     # ==================================================
 
-    def _build_provider(self) -> LiveMT5Provider:
+    def _build_provider(self) -> MT5Client:
         StrategyClass = load_strategy_class(
             self.cfg.STRATEGY_CLASS
         )
@@ -91,7 +91,7 @@ class LiveTradingRunner:
                 MIN_HTF_BARS.get(tf, 0),
             )
 
-        provider = LiveMT5Provider(bars_per_tf=bars_per_tf)
+        provider = MT5Client(bars_per_tf=bars_per_tf)
 
         print(f"📡 Informative TFs: {bars_per_tf}")
         return provider

@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from core.data_provider.exceptions import DataNotAvailable
+from core.data_provider import DataNotAvailable
+from core.data_provider.ohlcv_schema import finalize_ohlcv
 
 
 class DukascopyClient:
@@ -146,40 +147,10 @@ class DukascopyClient:
         else:
             raise ValueError("No time/timestamp column in Dukascopy CSV")
 
-        # FX → brak realnego volume
         df["volume"] = df.get("volume", 1.0)
 
-        return (
-            df[["time", "open", "high", "low", "close", "volume"]]
-            .sort_values("time")
-            .drop_duplicates("time")
-            .reset_index(drop=True)
-        )
+        return finalize_ohlcv(df)
 
-        # 2️⃣ OHLC
-        required_ohlc = {"open", "high", "low", "close"}
-        missing_ohlc = required_ohlc - set(df.columns)
-        if missing_ohlc:
-            raise ValueError(
-                f"Dukascopy CSV missing OHLC columns: {missing_ohlc}"
-            )
-
-        # 3️⃣ volume (FX has no volume → synthetic)
-        df["volume"] = 1.0
-
-        # 4️⃣ final shape
-        out = df[
-            ["time", "open", "high", "low", "close", "volume"]
-        ].copy()
-
-        # 5️⃣ sort & deduplicate
-        out = (
-            out.sort_values("time")
-            .drop_duplicates(subset="time", keep="last")
-            .reset_index(drop=True)
-        )
-
-        return out
 
     def parse_dukascopy_time(self, series: pd.Series) -> pd.Series:
         """

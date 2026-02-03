@@ -87,6 +87,7 @@ live_state_*/
 download/
 # Ignore everything in Strategies
 Strategies/*
+**/notes.md
 
 # But keep this specific file
 !Strategies/Samplestrategy.py

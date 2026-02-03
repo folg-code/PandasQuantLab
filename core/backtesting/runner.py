@@ -8,12 +8,11 @@ from config.backtest import INITIAL_BALANCE
 from core.backtesting.reporting.core.contex_enricher import TradeContextEnricher
 from core.backtesting.reporting.core.preparer import RiskDataPreparer
 from core.backtesting.reporting.runner import ReportRunner
-from core.data_provider.backend_factory import create_backtest_backend
-from core.data_provider.default_provider import DefaultOhlcvDataProvider
-from core.data_provider.cache import MarketDataCache
+from core.data_provider import CsvMarketDataCache
+from core.backtesting.backend_factory import create_backtest_backend
+from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
 
 from core.backtesting.backtester import Backtester
-from core.backtesting.raporter import BacktestReporter
 from core.backtesting.plotting.plot import TradePlotter
 
 from core.strategy.runner import run_strategy_single
@@ -57,7 +56,7 @@ class BacktestRunner:
 
         self.provider = DefaultOhlcvDataProvider(
             backend=backend,
-            cache=MarketDataCache(self.config.MARKET_DATA_PATH),
+            cache=CsvMarketDataCache(self.config.MARKET_DATA_PATH),
             backtest_start=start,
             backtest_end=end,
         )

@@ -1,4 +1,4 @@
-from .dukascopy import DukascopyBackend
+from .dukascopy_backend import DukascopyBackend
 from .mt5 import Mt5Backend
 
 __all__ = [

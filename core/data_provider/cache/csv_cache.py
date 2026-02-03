@@ -3,8 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 import pandas as pd
 
+from core.data_provider.cache.cache_key import build_cache_key
+from core.data_provider.ohlcv_schema import ensure_utc_time
 
-class MarketDataCache:
+
+class CsvMarketDataCache:
     """
     CSV-based OHLCV cache.
     One file per (symbol, timeframe).
@@ -18,55 +21,58 @@ class MarketDataCache:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
 
-    # -------------------------------------------------
-    # Paths
-    # -------------------------------------------------
 
-    def _path(self, symbol: str, timeframe: str) -> Path:
-        return self.root / f"{symbol}_{timeframe}.csv"
+
 
     # -------------------------------------------------
     # Coverage
     # -------------------------------------------------
 
-    def coverage(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-    ) -> tuple[pd.Timestamp, pd.Timestamp] | None:
-        path = self._path(symbol, timeframe)
+    def coverage(self, *, symbol: str, timeframe: str):
+        path = build_cache_key(self.root,symbol,timeframe)
         if not path.exists():
             return None
 
-        df = pd.read_csv(path, usecols=["time"])
+        df = pd.read_csv(path)
         if df.empty:
             return None
 
-        times = pd.to_datetime(df["time"], utc=True)
-        return times.min(), times.max()
+        t = pd.to_datetime(df["time"], utc=True)
+
+        cov_start = t.min()
+        cov_end = t.max()
+
+        return cov_start, cov_end
 
     # -------------------------------------------------
     # Load
     # -------------------------------------------------
 
     def load_range(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        start: pd.Timestamp,
-        end: pd.Timestamp,
+            self,
+            *,
+            symbol: str,
+            timeframe: str,
+            start: pd.Timestamp,
+            end: pd.Timestamp,
     ) -> pd.DataFrame:
-        path = self._path(symbol, timeframe)
+        path = build_cache_key(self.root, symbol, timeframe)
         if not path.exists():
             raise FileNotFoundError(path)
 
+        # normalize range to UTC
+        start = pd.Timestamp(start)
+        end = pd.Timestamp(end)
+        start = start.tz_localize("UTC") if start.tzinfo is None else start.tz_convert("UTC")
+        end = end.tz_localize("UTC") if end.tzinfo is None else end.tz_convert("UTC")
+
         df = pd.read_csv(path)
-        df["time"] = pd.to_datetime(df["time"], utc=True)
+        df = ensure_utc_time(df)
+
+        mask = (df["time"] >= start) & (df["time"] <= end)
 
         return (
-            df[(df["time"] >= start) & (df["time"] <= end)]
+            df.loc[mask]
             .sort_values("time")
             .reset_index(drop=True)
         )
@@ -85,7 +91,7 @@ class MarketDataCache:
         if df.empty:
             return
 
-        path = self._path(symbol, timeframe)
+        path = build_cache_key(self.root,symbol,timeframe)
         (
             df.sort_values("time")
               .reset_index(drop=True)
@@ -102,7 +108,7 @@ class MarketDataCache:
         if df.empty:
             return
 
-        path = self._path(symbol, timeframe)
+        path = build_cache_key(self.root,symbol,timeframe)
 
         if not path.exists():
             self.save(symbol=symbol, timeframe=timeframe, df=df)
@@ -120,7 +126,6 @@ class MarketDataCache:
             .reset_index(drop=True)
         )
 
-        # 🔒 KLUCZOWY GUARD
         if len(combined) == before:
             return
 

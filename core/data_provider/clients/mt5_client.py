@@ -6,18 +6,23 @@ from core.utils.lookback import LOOKBACK_CONFIG
 from core.utils.timeframe import MT5_TIMEFRAME_MAP
 
 
-class LiveMT5Provider(MarketDataProvider):
+class MT5Client(MarketDataProvider):
 
-    def __init__(self, *, bars_per_tf: dict[str, int]):
+    def __init__(
+            self,
+            *,
+            bars_per_tf: dict[str, int]):
+
         self.bars_per_tf = bars_per_tf
 
-    def get_ohlcv(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        bars: int,
+    @staticmethod
+    def _fetch_ohlcv(
+            *,
+            symbol: str,
+            timeframe: str,
+            bars: int
     ) -> pd.DataFrame:
+
         tf = MT5_TIMEFRAME_MAP[timeframe]
         rates = mt5.copy_rates_from_pos(symbol, tf, 0, bars)
         if rates is None:
@@ -29,6 +34,15 @@ class LiveMT5Provider(MarketDataProvider):
         df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
         return df
 
+    def get_ohlcv(
+        self,
+        *,
+        symbol: str,
+        timeframe: str,
+        bars: int,
+    ) -> pd.DataFrame:
+        return self._fetch_ohlcv(symbol=symbol, timeframe=timeframe, bars=bars)
+
     def get_informative_df(
         self,
         *,
@@ -36,7 +50,6 @@ class LiveMT5Provider(MarketDataProvider):
         timeframe: str,
         startup_candle_count: int,
     ) -> pd.DataFrame:
-        # 🔑 LIVE: lookback → bars
         bars = lookback_to_bars(
             timeframe=timeframe,
             lookback=LOOKBACK_CONFIG[timeframe],
@@ -48,7 +61,6 @@ class LiveMT5Provider(MarketDataProvider):
             bars=bars,
         )
 
-        # 🔑 strategia dostaje dokładnie to, czego potrzebuje
         return df.tail(startup_candle_count).copy()
 
 
@@ -64,7 +76,10 @@ _TIMEFRAME_TO_SECONDS = {
 }
 
 
-def lookback_to_bars(timeframe: str, lookback: str) -> int:
+def lookback_to_bars(
+        timeframe: str,
+        lookback: str
+) -> int:
     """
     Zamienia np.:
     - ("M30", "30d") -> ~1440
@@ -90,6 +105,4 @@ def lookback_to_bars(timeframe: str, lookback: str) -> int:
 
     bars = seconds // tf_sec
 
-    # 🔒 minimum bezpieczeństwa
     return max(int(bars), 10)
-

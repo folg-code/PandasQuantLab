@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from core.data_provider.backend import MarketDataBackend
-from core.data_provider.exceptions import DataNotAvailable
+from core.data_provider import MarketDataBackend, DataNotAvailable
+from core.data_provider.ohlcv_schema import finalize_ohlcv
 
 
 class DukascopyBackend(MarketDataBackend):
@@ -58,38 +58,4 @@ class DukascopyBackend(MarketDataBackend):
                 f"No Dukascopy data for {symbol} {timeframe}"
             )
 
-        return self._normalize(df)
-
-    @staticmethod
-    def _normalize(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Normalize Dukascopy OHLCV output to standard format.
-        """
-        required_columns = {
-            "time",
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-        }
-
-        df = df.copy()
-
-        df.columns = [c.lower() for c in df.columns]
-
-        missing = required_columns - set(df.columns)
-        if missing:
-            raise ValueError(
-                f"Dukascopy OHLCV missing columns: {missing}"
-            )
-
-        df["time"] = pd.to_datetime(df["time"], utc=True)
-
-        df = (
-            df.sort_values("time")
-            .drop_duplicates(subset="time", keep="last")
-            .reset_index(drop=True)
-        )
-
-        return df[list(required_columns)]
+        return finalize_ohlcv(df=df)

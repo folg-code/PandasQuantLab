@@ -110,7 +110,7 @@ flowchart LR
   subgraph I[Informative Provider]
     I1[load_strategy_class] --> I2[get_required_informatives]
     I2 --> I3[compute bars_per_tf<br/>lookback + MIN_HTF_BARS]
-    I3 --> I4[LiveMT5Provider<br/>bars_per_tf]
+    I3 --> I4[MT5Client<br/>bars_per_tf]
   end
 
   %% =====================
