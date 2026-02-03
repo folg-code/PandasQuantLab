@@ -1,5 +1,5 @@
 import pandas as pd
-from core.data_provider.clients.dukascopy import DukascopyClient
+from core.data_provider.clients.dukascopy_client import DukascopyClient
 
 def test_parse_dukascopy_time_seconds():
     c = DukascopyClient()

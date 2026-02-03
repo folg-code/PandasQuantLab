@@ -1,10 +1,10 @@
 import pandas as pd
 
-from core.data_provider.default_provider import DefaultOhlcvDataProvider
+from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
 
 def test_no_cache_fetches_and_saves(tmp_path, utc):
-    from core.data_provider.cache import MarketDataCache
-    cache = MarketDataCache(tmp_path)
+    from core.data_provider.cache import CsvMarketDataCache
+    cache = CsvMarketDataCache(tmp_path)
 
     start = utc("2022-01-01 00:00:00")
     end   = utc("2022-01-01 00:10:00")
@@ -33,8 +33,8 @@ def test_no_cache_fetches_and_saves(tmp_path, utc):
 
 
 def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
-    from core.data_provider.cache import MarketDataCache
-    cache = MarketDataCache(tmp_path)
+    from core.data_provider.cache import CsvMarketDataCache
+    cache = CsvMarketDataCache(tmp_path)
 
     df_cov = pd.DataFrame({
         "time": pd.date_range("2022-01-01 00:05:00", periods=6, freq="1min", tz="UTC"),
@@ -52,7 +52,7 @@ def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
         ("EURUSD", "M1", utc("2022-01-01 00:00:00"), utc("2022-01-01 00:05:00")): df_pre
     })
 
-    from core.data_provider.default_provider import DefaultOhlcvDataProvider
+    from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
     p = DefaultOhlcvDataProvider(
         backend=backend, cache=cache,
         backtest_start=start, backtest_end=end
@@ -66,8 +66,8 @@ def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
 
 
 def test_missing_after_fetches_post_and_appends(tmp_path, utc):
-    from core.data_provider.cache import MarketDataCache
-    cache = MarketDataCache(tmp_path)
+    from core.data_provider.cache import CsvMarketDataCache
+    cache = CsvMarketDataCache(tmp_path)
 
     # coverage: 00:00 -> 00:05
     df_cov = pd.DataFrame({
@@ -86,7 +86,7 @@ def test_missing_after_fetches_post_and_appends(tmp_path, utc):
         ("EURUSD", "M1", utc("2022-01-01 00:05:00"), utc("2022-01-01 00:10:00")): df_post
     })
 
-    from core.data_provider.default_provider import DefaultOhlcvDataProvider
+    from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
     p = DefaultOhlcvDataProvider(
         backend=backend, cache=cache,
         backtest_start=start, backtest_end=end

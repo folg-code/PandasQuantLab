@@ -1,6 +1,6 @@
 from core.data_provider import MarketDataBackend
-from core.data_provider.backends.dukascopy import DukascopyBackend
-from core.data_provider.clients.dukascopy import DukascopyClient
+from core.data_provider.backends.dukascopy_backend import DukascopyBackend
+from core.data_provider.clients.dukascopy_client import DukascopyClient
 
 
 def create_backtest_backend(name: str) -> MarketDataBackend:

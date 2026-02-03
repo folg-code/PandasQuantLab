@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
+from core.data_provider import DataNotAvailable
 from core.data_provider.backends.mt5 import Mt5Backend
-from core.data_provider.exceptions import DataNotAvailable
 
 def test_mt5_backend_unsupported_timeframe(monkeypatch):
     monkeypatch.setattr("core.data_provider.backends.mt5.mt5.initialize", lambda: True)

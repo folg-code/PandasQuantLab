@@ -1,8 +1,11 @@
 import pandas as pd
 import pytest
 
-from core.data_provider.backends.dukascopy import DukascopyBackend
-from core.data_provider.exceptions import DataNotAvailable
+from core.data_provider import DataNotAvailable
+from core.data_provider.backends.dukascopy_backend import DukascopyBackend
+
+
+from core.data_provider.ohlcv_schema import finalize_ohlcv
 
 
 class DummyClient:
@@ -117,12 +120,12 @@ def test_fetch_ohlcv_raises_DataNotAvailable_on_none_or_empty():
 def test_normalize_raises_on_missing_columns():
     df = pd.DataFrame({"time": ["2022-01-01"], "open": [1]})  # brak reszty
     with pytest.raises(ValueError, match="missing columns"):
-        DukascopyBackend._normalize(df)
+        finalize_ohlcv(df)
 
 
 def test_normalize_lowercases_columns_and_returns_standard_schema():
     df = _df_ok_unsorted_with_dups()
-    out = DukascopyBackend._normalize(df)
+    out = finalize_ohlcv(df)
 
     assert set(out.columns) == {"time", "open", "high", "low", "close", "volume"}
     assert out["time"].dt.tz is not None

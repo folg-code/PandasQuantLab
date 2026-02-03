@@ -6,9 +6,9 @@ from typing import Dict
 import pandas as pd
 import MetaTrader5 as mt5
 
-from core.data_provider.clients.mt5_provider import (
+from core.data_provider.clients.mt5_client import (
     lookback_to_bars,
-    LiveMT5Provider,
+    MT5Client,
 )
 from core.live_trading.engine import LiveEngine
 from core.live_trading.strategy_adapter import LiveStrategyAdapter
@@ -44,7 +44,7 @@ class LiveTradingRunner:
 
         self.engine: LiveEngine | None = None
         self.strategy = None
-        self.provider: LiveMT5Provider | None = None
+        self.provider: MT5Client | None = None
 
     # ==================================================
     # 1️⃣ MT5 BOOTSTRAP
@@ -94,7 +94,7 @@ class LiveTradingRunner:
     # 3️⃣ INFORMATIVE PROVIDER (HTF)
     # ==================================================
 
-    def build_provider(self) -> LiveMT5Provider:
+    def build_provider(self) -> MT5Client:
         StrategyClass = load_strategy_class(self.cfg.strategy_class)
 
         bars_per_tf: Dict[str, int] = {}
@@ -105,7 +105,7 @@ class LiveTradingRunner:
                 MIN_HTF_BARS.get(tf, 0),
             )
 
-        provider = LiveMT5Provider(bars_per_tf=bars_per_tf)
+        provider = MT5Client(bars_per_tf=bars_per_tf)
         print(f"📡 Informative provider ready: {bars_per_tf}")
 
         return provider

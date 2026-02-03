@@ -1,18 +1,18 @@
 {
-  "376893444": {
-    "trade_id": 376893444,
+  "382827341": {
+    "trade_id": 382827341,
     "symbol": "EURUSD",
-    "direction": "long",
-    "entry_price": 1.19453,
-    "volume": 0.37,
-    "sl": 1.19318,
-    "tp1": 1.1958800000000003,
-    "tp2": 1.1972300000000005,
+    "direction": "short",
+    "entry_price": 1.18166,
+    "volume": 1.724,
+    "sl": 1.18195,
+    "tp1": 1.1813699999999998,
+    "tp2": 1.1810799999999997,
     "tp1_executed": false,
-    "entry_time": "2026-01-28T17:59:00+00:00",
-    "entry_tag": "mean_reversion_long",
+    "entry_time": "2026-02-03T22:39:00+00:00",
+    "entry_tag": "mean_reversion_short",
     "strategy": "Samplestrategy",
     "strategy_config": {},
-    "ticket": 376893444
+    "ticket": 382827341
   }
 }

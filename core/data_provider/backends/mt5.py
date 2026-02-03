@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 
 import MetaTrader5 as mt5
 
-from core.data_provider.backend import MarketDataBackend
-from core.data_provider.exceptions import DataNotAvailable
+from core.data_provider import MarketDataBackend, DataNotAvailable
+from core.data_provider.ohlcv_schema import finalize_ohlcv
 from core.utils.timeframe import MT5_TIMEFRAME_MAP
 
 
@@ -54,7 +54,7 @@ class Mt5Backend(MarketDataBackend):
 
         df = pd.DataFrame(rates)
 
-        return self._normalize(df)
+        return finalize_ohlcv(df=df)
 
     # ---------- helpers ----------
 
@@ -67,44 +67,4 @@ class Mt5Backend(MarketDataBackend):
             ts = ts.tz_convert("UTC")
         return ts.to_pydatetime().replace(tzinfo=timezone.utc)
 
-    @staticmethod
-    def _normalize(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Normalize MT5 rates to OHLCV.
-        MT5 fields:
-        - time (unix seconds)
-        - open, high, low, close
-        - tick_volume
-        """
-        df = df.copy()
 
-        df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
-
-        df.rename(
-            columns={
-                "tick_volume": "volume",
-            },
-            inplace=True,
-        )
-
-        required = [
-            "time",
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-        ]
-
-        missing = set(required) - set(df.columns)
-        if missing:
-            raise ValueError(
-                f"MT5 OHLCV missing columns: {missing}"
-            )
-
-        return (
-            df[required]
-            .sort_values("time")
-            .drop_duplicates(subset="time", keep="last")
-            .reset_index(drop=True)
-        )

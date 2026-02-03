@@ -1,22 +1,9 @@
 from __future__ import annotations
 
 import pandas as pd
-from core.data_provider.exceptions import (
-    InvalidDataRequest,
-)
+
+from core.data_provider.ohlcv_schema import sort_and_deduplicate, ensure_utc_time
 from core.utils.timeframe import timeframe_to_pandas_freq
-
-
-def validate_request(*, start, end, lookback):
-    if lookback is not None and (start or end):
-        raise InvalidDataRequest(
-            "Use either (start, end) or lookback, not both."
-        )
-
-    if lookback is None and (start is None or end is None):
-        raise InvalidDataRequest(
-            "Backtest mode requires start and end."
-        )
 
 
 class DefaultOhlcvDataProvider:
@@ -59,18 +46,24 @@ class DefaultOhlcvDataProvider:
         if missing:
             raise ValueError(f"OHLCV missing columns: {missing}")
 
-        df = df.copy()
-        df["time"] = pd.to_datetime(df["time"], utc=True)
 
-        df = (
-            df.sort_values("time")
-              .drop_duplicates(subset="time", keep="last")
-              .reset_index(drop=True)
-        )
+        df = ensure_utc_time(df)
+
+        df = sort_and_deduplicate(df=df, keep="last")
 
         base = [c for c in BASE_ORDER if c in df.columns]
         rest = [c for c in df.columns if c not in base]
         return df[base + rest]
+
+    @staticmethod
+    def shift_time_by_candles(
+            *,
+            end: pd.Timestamp,
+            timeframe: str,
+            candles: int,
+    ) -> pd.Timestamp:
+        freq = timeframe_to_pandas_freq(timeframe)
+        return end - pd.tseries.frequencies.to_offset(freq) * candles
 
     # -------------------------------------------------
     # Main API
@@ -92,6 +85,7 @@ class DefaultOhlcvDataProvider:
             symbol=symbol,
             timeframe=timeframe,
         )
+
 
         pieces: list[pd.DataFrame] = []
 
@@ -194,7 +188,7 @@ class DefaultOhlcvDataProvider:
         No trimming here. Trimming happens AFTER merge.
         """
 
-        extended_start = shift_time_by_candles(
+        extended_start = self.shift_time_by_candles(
             end=self.backtest_start,
             timeframe=timeframe,
             candles=startup_candle_count,
@@ -208,13 +202,3 @@ class DefaultOhlcvDataProvider:
         )
 
         return df.copy()
-
-
-def shift_time_by_candles(
-    *,
-    end: pd.Timestamp,
-    timeframe: str,
-    candles: int,
-) -> pd.Timestamp:
-    freq = timeframe_to_pandas_freq(timeframe)
-    return end - pd.tseries.frequencies.to_offset(freq) * candles
