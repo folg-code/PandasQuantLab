@@ -9,10 +9,11 @@ from config.instrument_meta import INSTRUMENT_META, get_spread_abs
 
 from core.backtesting.execution_policy import ExecutionPolicy
 from core.backtesting.simulate_exit_numba import simulate_exit_numba
-from core.domain.risk import position_sizer_fast
+
 from core.domain.execution.exit_processor import ExitProcessor
 from core.domain.cost.cost_engine import TradeCostEngine, InstrumentCtx
 from core.backtesting.trade_factory import TradeFactory
+from core.domain.risk.sizing import position_size
 
 
 class Backtester:
@@ -117,9 +118,9 @@ class Backtester:
                 # legacy behavior: entry slippage on exec price (kept as-is)
                 entry_price += ctx.slippage_abs if direction == "long" else -ctx.slippage_abs
 
-                position_size = position_sizer_fast(
-                    entry_price,
-                    sl,
+                size = position_size(
+                    entry_price=entry_price,
+                    stop_price=sl,
                     max_risk=MAX_RISK_PER_TRADE,
                     account_size=INITIAL_BALANCE,
                     point_size=point_size,
@@ -159,7 +160,7 @@ class Backtester:
                     sl=sl,
                     tp1=tp1,
                     tp2=tp2,
-                    position_size=position_size,
+                    position_size=size,
                     point_size=point_size,
                     pip_value=pip_value,
                 )
@@ -170,7 +171,7 @@ class Backtester:
                     entry_time=entry_time,
                     entry_price=entry_price,
                     entry_tag=entry_tag,
-                    position_size=position_size,
+                    position_size=size,
                     sl=sl,
                     tp1=tp1,
                     tp2=tp2,
