@@ -4,6 +4,14 @@ from core.domain.trade.trade_exit import TradeExitResult
 
 
 class ExitProcessor:
+    """
+    Domain-level exit interpretation.
+
+    This component:
+    - is shared between backtest and live trading
+    - does NOT detect exits
+    - only interprets exit outcomes (prices, time, reason)
+    """
 
     @staticmethod
     def process(
