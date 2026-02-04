@@ -88,8 +88,9 @@ class BaseStrategy(ABC):
     # Optional hooks (called by orchestrators)
     # ==================================================
 
-    def validate(self) -> None:
-        pass
+    def validate(self):
+        if "time" not in self.df.columns:
+            raise ValueError("Strategy DF must contain 'time' column")
 
     def build_report_config(self):
         return (
