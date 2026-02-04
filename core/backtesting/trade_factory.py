@@ -1,5 +1,5 @@
-from core.domain.trade_exit import TradeExitResult, TradeExitReason
-from core.domain.trade import Trade
+from core.domain.trade.trade import Trade
+from core.domain.trade.trade_exit import TradeExitResult, TradeExitReason
 
 
 class TradeFactory:

@@ -53,6 +53,7 @@ class Mt5Backend(MarketDataBackend):
             )
 
         df = pd.DataFrame(rates)
+        df = df.rename(columns={"tick_volume": "volume"})
 
         return finalize_ohlcv(df=df)
 

@@ -1,7 +1,7 @@
 import pandas as pd
 import MetaTrader5 as mt5
 
-from core.data_provider.base import MarketDataProvider
+from core.data_provider.contracts import MarketDataProvider
 from core.utils.lookback import LOOKBACK_CONFIG
 from core.utils.timeframe import MT5_TIMEFRAME_MAP
 

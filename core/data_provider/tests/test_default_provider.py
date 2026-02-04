@@ -1,9 +1,10 @@
 import pandas as pd
 
+from core.data_provider import CsvMarketDataCache
 from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
 
 def test_no_cache_fetches_and_saves(tmp_path, utc):
-    from core.data_provider.cache import CsvMarketDataCache
+
     cache = CsvMarketDataCache(tmp_path)
 
     start = utc("2022-01-01 00:00:00")
@@ -33,7 +34,6 @@ def test_no_cache_fetches_and_saves(tmp_path, utc):
 
 
 def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
-    from core.data_provider.cache import CsvMarketDataCache
     cache = CsvMarketDataCache(tmp_path)
 
     df_cov = pd.DataFrame({
@@ -66,7 +66,6 @@ def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
 
 
 def test_missing_after_fetches_post_and_appends(tmp_path, utc):
-    from core.data_provider.cache import CsvMarketDataCache
     cache = CsvMarketDataCache(tmp_path)
 
     # coverage: 00:00 -> 00:05
