@@ -1,6 +1,6 @@
 import pandas as pd
 
-from core.orchestration.strategy_execution import execute_strategy
+from core.strategy.orchestration.strategy_execution import execute_strategy
 
 
 def run_strategy_single(

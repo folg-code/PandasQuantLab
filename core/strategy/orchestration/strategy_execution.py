@@ -1,5 +1,5 @@
 import pandas as pd
-from core.orchestration.informatives import apply_informatives
+from core.strategy.orchestration.informatives import apply_informatives
 
 
 def execute_strategy(
