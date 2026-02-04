@@ -24,8 +24,18 @@ def sort_and_deduplicate(df: pd.DataFrame, *, keep: str = "last") -> pd.DataFram
 
 
 def finalize_ohlcv(df: pd.DataFrame, *, keep: str = "last") -> pd.DataFrame:
+
+    if df is None:
+        raise ValueError("df is None")
+
     df = df.copy()
+
+    df.columns = [c.lower() for c in df.columns]
+
     validate_ohlcv_schema(df)
+
     ensure_utc_time(df)
+
     df = sort_and_deduplicate(df, keep=keep)
+
     return df[OHLCV_COLUMNS]

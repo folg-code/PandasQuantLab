@@ -118,8 +118,8 @@ def test_fetch_ohlcv_raises_DataNotAvailable_on_none_or_empty():
 
 
 def test_normalize_raises_on_missing_columns():
-    df = pd.DataFrame({"time": ["2022-01-01"], "open": [1]})  # brak reszty
-    with pytest.raises(ValueError, match="missing columns"):
+    df = pd.DataFrame({"time": ["2022-01-01"], "open": [1]})
+    with pytest.raises(ValueError, match=r"Missing OHLCV columns"):
         finalize_ohlcv(df)
 
 
