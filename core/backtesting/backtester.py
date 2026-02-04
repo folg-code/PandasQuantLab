@@ -69,6 +69,7 @@ class Backtester:
         df = df.copy()
         df["time"] = df["time"].dt.tz_localize(None)
 
+
         high_arr = df["high"].values
         low_arr = df["low"].values
         close_arr = df["close"].values

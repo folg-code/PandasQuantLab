@@ -58,5 +58,25 @@
     "exit_time": "2026-02-04 12:46:00+00:00",
     "exit_reason": "BROKER_CLOSED",
     "exit_level_tag": "TP2_live"
+  },
+  "383343273": {
+    "trade_id": 383343273,
+    "symbol": "EURUSD",
+    "direction": "long",
+    "entry_price": 1.18085,
+    "volume": 1.282,
+    "sl": 1.18046,
+    "tp1": 1.1812399999999998,
+    "tp2": 1.1816299999999997,
+    "tp1_executed": false,
+    "entry_time": "2026-02-04T12:48:00+00:00",
+    "entry_tag": "mean_reversion_long",
+    "strategy": "Samplestrategy",
+    "strategy_config": {},
+    "ticket": 383343273,
+    "exit_price": 1.1816299999999997,
+    "exit_time": "2026-02-04 14:24:00+00:00",
+    "exit_reason": "BROKER_CLOSED",
+    "exit_level_tag": "TP2_live"
   }
 }

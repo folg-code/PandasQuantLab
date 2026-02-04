@@ -4,8 +4,8 @@ import talib.abstract as ta
 from Strategies.utils.decorators import informative
 from core.backtesting.reporting.core.context import ContextSpec
 from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
-from core.strategy.BaseStrategy import BaseStrategy
 from FeatureEngineering.MarketStructure.engine import MarketStructureEngine
+from core.strategy.base import BaseStrategy
 
 
 class Samplestrategy(BaseStrategy):
@@ -15,13 +15,11 @@ class Samplestrategy(BaseStrategy):
             df,
             symbol,
             startup_candle_count,
-            provider,
     ):
         super().__init__(
             df=df,
             symbol=symbol,
             startup_candle_count=startup_candle_count,
-            provider=provider,
         )
 
     @informative("M30")
@@ -194,6 +192,8 @@ class Samplestrategy(BaseStrategy):
 
 
         self.df = df
+
+
 
 
         return df

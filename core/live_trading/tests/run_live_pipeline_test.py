@@ -114,12 +114,12 @@ class LiveTradingRunner:
     # 4️⃣ STRATEGY BOOTSTRAP
     # ==================================================
 
-    def build_strategy(self, df_ltf: pd.DataFrame):
+    def build_strategy(self, df_execution: pd.DataFrame):
         self.provider = self.build_provider()
 
         self.strategy = load_strategy(
             name=self.cfg.strategy_class,
-            df=df_ltf,
+            df=df_execution,
             symbol=self.cfg.symbol,
             startup_candle_count=self.cfg.startup_candle_count,
             provider=self.provider,
@@ -178,8 +178,8 @@ class LiveTradingRunner:
         print("🚀 LiveTradingRunner start")
 
         self.init_mt5()
-        df_ltf = self.load_initial_data()
-        self.build_strategy(df_ltf)
+        df_execution = self.load_initial_data()
+        self.build_strategy(df_execution)
         self.build_engine()
 
         print(

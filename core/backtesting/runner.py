@@ -31,7 +31,6 @@ class BacktestRunner:
 
     def __init__(self, cfg):
         self.config = cfg
-        self.provider = None
 
         # 🔑 STRATEGY CONTRACT
         self.strategy = None          # reference strategy (for reporting config)

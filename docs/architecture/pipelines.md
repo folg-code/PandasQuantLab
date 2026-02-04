@@ -100,7 +100,7 @@ flowchart LR
   subgraph W[Warmup Data]
     W1[Resolve timeframe + lookback] --> W2[copy_rates_from_pos<br/>bars]
     W2 --> W3[Build DataFrame<br/>UTC time]
-    W3 --> W4[df_ltf]
+    W3 --> W4[df_execution]
   end
 
   %% =====================
@@ -119,7 +119,7 @@ flowchart LR
   I4 --> S
   W4 --> S
   subgraph S[Strategy Layer]
-    S1[load_strategy<br/>df_ltf + symbol + startup_candle_count] --> S2[strategy]
+    S1[load_strategy<br/>df_execution + symbol + startup_candle_count] --> S2[strategy]
   end
 
   %% =====================

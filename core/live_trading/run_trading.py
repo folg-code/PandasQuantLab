@@ -10,7 +10,7 @@ from core.live_trading.strategy_adapter import LiveStrategyAdapter
 from core.live_trading.position_manager import PositionManager
 from core.live_trading.mt5_adapter import MT5Adapter
 from core.live_trading.trade_repo import TradeRepo
-from core.live_trading.strategy_loader import load_strategy, load_strategy_class
+from core.live_trading.strategy_loader import  load_strategy_class
 from core.utils.lookback import LOOKBACK_CONFIG, MIN_HTF_BARS
 from core.utils.timeframe import MT5_TIMEFRAME_MAP
 
@@ -100,18 +100,14 @@ class LiveTradingRunner:
     # 4️⃣ STRATEGY
     # ==================================================
 
-    def _build_strategy(self, df_ltf: pd.DataFrame):
-        self.provider = self._build_provider()
-
-        self.strategy = load_strategy(
-            name=self.cfg.STRATEGY_CLASS,
-            df=df_ltf,
+    def _build_strategy(self, df_execution: pd.DataFrame):
+        self.strategy = load_strategy_class(self.cfg.STRATEGY_CLASS)(
+            df=df_execution,
             symbol=self.cfg.SYMBOLS,
             startup_candle_count=self.cfg.STARTUP_CANDLE_COUNT,
-            provider=self.provider,
         )
 
-        print(f"🧠 Strategy loaded: {self.cfg.STRATEGY_CLASS}")
+        self.strategy.validate()
 
     # ==================================================
     # 5️⃣ ENGINE
@@ -125,6 +121,10 @@ class LiveTradingRunner:
 
         strategy_adapter = LiveStrategyAdapter(
             strategy=self.strategy,
+            provider=self.provider,
+            symbol=self.cfg.SYMBOLS,
+            startup_candle_count=self.cfg.STARTUP_CANDLE_COUNT,
+            df_execution=self.df_execution,
         )
 
         tf = MT5_TIMEFRAME_MAP[self.cfg.TIMEFRAME]
@@ -137,12 +137,15 @@ class LiveTradingRunner:
                 return None
 
             last_closed = rates[-2]
+
+            candle_ts = pd.to_datetime(
+                last_closed["time"], unit="s", utc=True
+            )
+
             return {
-                "price": last_closed["close"],
-                "time": pd.to_datetime(
-                    last_closed["time"], unit="s", utc=True
-                ),
-                "candle_time": last_closed["time"],
+                "price": float(last_closed["close"]),
+                "time": candle_ts,  # logical event time
+                "candle_time": candle_ts  # SAME TYPE, SAME MEANING
             }
 
         self.engine = LiveEngine(
@@ -162,8 +165,10 @@ class LiveTradingRunner:
         print("🚀 LiveTradingRunner start")
 
         self._init_mt5()
-        df_ltf = self._load_initial_data()
-        self._build_strategy(df_ltf)
+        self.df_execution = self._load_initial_data()
+        self.provider = self._build_provider()
+
+        self._build_strategy(self.df_execution)
         self._build_engine()
 
         print(

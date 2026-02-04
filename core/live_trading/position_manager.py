@@ -6,7 +6,7 @@ from typing import Dict, Any
 import mt5
 
 from config.live import MAX_RISK_PER_TRADE
-from core.domain.risk import position_sizer_fast
+from core.domain.risk.sizing import position_size
 from core.live_trading.trade_repo import TradeRepo
 from core.live_trading.mt5_adapter import MT5Adapter
 
@@ -90,9 +90,9 @@ class PositionManager:
 
         point_size, pip_value = self._get_symbol_risk_params(plan.symbol)
 
-        volume = position_sizer_fast(
-            close=plan.entry_price,
-            sl=plan.exit_plan.sl,
+        volume = position_size(
+            entry_price=plan.entry_price,
+            stop_price=plan.exit_plan.sl,
             max_risk=max_risk,
             account_size=account_size,
             point_size=point_size,
