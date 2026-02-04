@@ -15,8 +15,8 @@ from core.data_provider.providers.default_provider import DefaultOhlcvDataProvid
 from core.backtesting.backtester import Backtester
 from core.backtesting.plotting.plot import TradePlotter
 
-from core.strategy.runner import run_strategy_single
-from core.strategy.strategy_loader import load_strategy_class
+from core.backtesting.strategy_runner import run_strategy_single
+from core.live_trading.strategy_loader import load_strategy_class
 
 
 class BacktestRunner:
