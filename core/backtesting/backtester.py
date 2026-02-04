@@ -1,19 +1,18 @@
 import traceback
-from dataclasses import dataclass
 from typing import  Optional
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 
 from config.backtest import INITIAL_BALANCE, SLIPPAGE, MAX_RISK_PER_TRADE
-from config.instrument_meta import INSTRUMENT_META, get_spread_abs, price_abs_to_usd
+from config.instrument_meta import INSTRUMENT_META, get_spread_abs
 
-from core.backtesting.execution_policy import ExecutionPolicy, EXEC_MARKET, EXEC_LIMIT
+from core.backtesting.execution_policy import ExecutionPolicy
 from core.backtesting.simulate_exit_numba import simulate_exit_numba
 from core.domain.risk import position_sizer_fast
 from core.domain.exit_processor import ExitProcessor
 from core.domain.trade_cost_engine import TradeCostEngine, InstrumentCtx
-from core.domain.trade_factory import TradeFactory
+from core.backtesting.trade_factory import TradeFactory
 
 
 class Backtester:
