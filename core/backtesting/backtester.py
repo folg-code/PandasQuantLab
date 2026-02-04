@@ -10,8 +10,8 @@ from config.instrument_meta import INSTRUMENT_META, get_spread_abs
 from core.backtesting.execution_policy import ExecutionPolicy
 from core.backtesting.simulate_exit_numba import simulate_exit_numba
 from core.domain.risk import position_sizer_fast
-from core.domain.exit_processor import ExitProcessor
-from core.domain.trade_cost_engine import TradeCostEngine, InstrumentCtx
+from core.domain.execution.exit_processor import ExitProcessor
+from core.domain.cost.cost_engine import TradeCostEngine, InstrumentCtx
 from core.backtesting.trade_factory import TradeFactory
 
 

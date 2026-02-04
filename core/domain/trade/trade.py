@@ -1,6 +1,6 @@
 import numpy as np
 
-from core.domain.trade_exit import TradeExitResult
+from core.domain.trade.trade_exit import TradeExitResult
 
 
 class Trade:

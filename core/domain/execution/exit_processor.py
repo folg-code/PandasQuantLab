@@ -1,5 +1,6 @@
-from core.domain.trade_exit import TradeExitResult
-from core.domain.execution import map_exit_code_to_reason
+from core.domain.execution.execution_mapping import map_exit_code_to_reason
+from core.domain.trade.trade_exit import TradeExitResult
+
 
 
 class ExitProcessor:

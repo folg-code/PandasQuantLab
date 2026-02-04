@@ -1,4 +1,4 @@
-from core.domain.trade_exit import TradeExitReason
+from core.domain.trade.trade_exit import TradeExitReason
 
 EXIT_NONE = 0
 EXIT_SL = 1

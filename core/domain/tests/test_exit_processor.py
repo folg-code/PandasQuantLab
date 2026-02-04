@@ -2,8 +2,8 @@ from datetime import datetime
 
 import pytest
 
-from core.domain.exit_processor import ExitProcessor
-from core.domain.trade_exit import TradeExitReason
+from core.domain.execution.exit_processor import ExitProcessor
+from core.domain.trade.trade_exit import TradeExitReason
 from core.backtesting.simulate_exit_numba import EXIT_SL, EXIT_TP2
 
 

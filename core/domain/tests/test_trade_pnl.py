@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from core.domain.trade import Trade
-from core.domain.trade_exit import TradeExitResult, TradeExitReason
+from core.domain.trade.trade import Trade
+from core.domain.trade.trade_exit import TradeExitResult, TradeExitReason
 
 
 def make_trade(direction="long"):

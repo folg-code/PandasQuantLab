@@ -1,7 +1,7 @@
 import pytest
 
-from core.domain.execution import map_exit_code_to_reason
-from core.domain.trade_exit import TradeExitReason
+from core.domain.execution.execution_mapping import map_exit_code_to_reason
+from core.domain.trade.trade_exit import TradeExitReason
 from core.backtesting.simulate_exit_numba import (
     EXIT_SL,
     EXIT_TP1_BE,

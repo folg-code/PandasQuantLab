@@ -10,7 +10,7 @@ from core.domain.risk import position_sizer_fast
 from core.live_trading.trade_repo import TradeRepo
 from core.live_trading.mt5_adapter import MT5Adapter
 
-from core.domain.trade_exit import TradeExitResult, TradeExitReason
+from core.domain.trade.trade_exit import TradeExitResult, TradeExitReason
 from datetime import timedelta
 
 from core.strategy.trade_plan import TradePlan

@@ -1,12 +1,12 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from core.domain.trade_cost_engine import TradeCostEngine, InstrumentCtx
+from core.domain.cost.cost_engine import TradeCostEngine, InstrumentCtx
 from core.backtesting.execution_policy import ExecutionPolicy
 
 
 def test_financing_is_zero_when_disabled(monkeypatch):
     monkeypatch.setattr(
-        "core.domain.trade_cost_engine.FINANCING_ENABLED",
+        "core.domain.cost.financing.FINANCING_ENABLED",
         False
     )
 
