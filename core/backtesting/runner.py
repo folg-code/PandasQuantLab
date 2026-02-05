@@ -1,23 +1,16 @@
-import os
 from time import perf_counter
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Iterable
 from uuid import uuid4
 
 import pandas as pd
 
+from config.report_config import ReportConfig, StdoutMode
+from core.backtesting.backend_factory import create_backtest_backend
+from core.backtesting.engine.backtester import Backtester
 from core.backtesting.results.metadata import BacktestMetadata
 from core.backtesting.results.result import BacktestResult
 from core.backtesting.results.store import ResultStore
-from core.data_provider import CsvMarketDataCache
-from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
-from core.backtesting.backend_factory import create_backtest_backend
-
-from core.backtesting.engine.backtester import Backtester
-
-from core.backtesting.plotting.plot import TradePlotter
-
 from core.backtesting.strategy_runner import run_strategy_single
+from core.data_provider import DefaultOhlcvDataProvider, CsvMarketDataCache
 from core.live_trading.strategy_loader import load_strategy_class
 from core.reporting.runner import ReportRunner
 
@@ -28,14 +21,10 @@ class BacktestRunner:
 
     Responsibilities:
     - load market data
-    - run strategies (single / multi symbol)
-    - orchestrate backtest windows (FULL / OPT / VAL / FINAL)
-    - aggregate RAW trades
-    - run reporting & plotting
-
-    Does NOT:
-    - compute equity inside backtester
-    - interpret results
+    - execute strategies
+    - run backtests
+    - build BacktestResult
+    - trigger reporting
     """
 
     def __init__(self, cfg):
@@ -43,11 +32,9 @@ class BacktestRunner:
 
         self.provider = None
 
-        # runtime strategy instances
-        self.strategies = []          # all instantiated strategies
-        self.strategy = None          # reference strategy (for reporting config)
+        self.strategy = None        # reference strategy
+        self.strategies = []        # all instantiated strategies
 
-        # data
         self.signals_df: pd.DataFrame | None = None
         self.trades_df: pd.DataFrame | None = None
 
@@ -56,9 +43,6 @@ class BacktestRunner:
     # ==================================================
 
     def load_data(self) -> dict[str, pd.DataFrame]:
-        t0 = perf_counter()
-        print("⏱️ load_data | start")
-
         backend = create_backtest_backend(self.cfg.BACKTEST_DATA_BACKEND)
 
         start = pd.Timestamp(self.cfg.TIMERANGE["start"], tz="UTC")
@@ -71,26 +55,17 @@ class BacktestRunner:
             backtest_end=end,
         )
 
-        all_data: dict[str, pd.DataFrame] = {}
+        all_data = {}
 
         for symbol in self.cfg.SYMBOLS:
-            t_sym = perf_counter()
-
             df = self.provider.get_ohlcv(
                 symbol=symbol,
                 timeframe=self.cfg.TIMEFRAME,
                 start=start,
                 end=end,
             )
-
-            print(
-                f"⏱️ load_data | get_ohlcv {symbol:<10} "
-                f"{perf_counter() - t_sym:8.3f}s ({len(df)} rows)"
-            )
-
             all_data[symbol] = df
 
-        print(f"⏱️ load_data | TOTAL {perf_counter() - t0:8.3f}s")
         return all_data
 
     # ==================================================
@@ -98,22 +73,13 @@ class BacktestRunner:
     # ==================================================
 
     def run_strategies(self, all_data: dict[str, pd.DataFrame]) -> pd.DataFrame:
-        """
-        Runs strategy logic and produces df_signals.
-        """
-        t0 = perf_counter()
-        print(f"📈 STRATEGIES | start ({len(all_data)} symbols)")
-
         all_signals = []
         self.strategies = []
         self.strategy = None
 
         strategy_cls = load_strategy_class(self.cfg.STRATEGY_CLASS)
 
-        # ---------- SINGLE SYMBOL ----------
-        if len(all_data) == 1:
-            symbol, df = next(iter(all_data.items()))
-
+        for symbol, df in all_data.items():
             df_signals, strategy = run_strategy_single(
                 symbol=symbol,
                 df=df,
@@ -124,35 +90,12 @@ class BacktestRunner:
 
             all_signals.append(df_signals)
             self.strategies.append(strategy)
-            self.strategy = strategy
 
-        # ---------- MULTI SYMBOL ----------
-        else:
-            with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
-                futures = [
-                    executor.submit(
-                        run_strategy_single,
-                        symbol,
-                        df,
-                        self.provider,
-                        strategy_cls,
-                        self.cfg.STARTUP_CANDLE_COUNT,
-                    )
-                    for symbol, df in all_data.items()
-                ]
-
-                for future in as_completed(futures):
-                    df_signals, strategy = future.result()
-
-                    all_signals.append(df_signals)
-                    self.strategies.append(strategy)
-
-                    # pick reference strategy once
-                    if self.strategy is None:
-                        self.strategy = strategy
+            if self.strategy is None:
+                self.strategy = strategy
 
         if not all_signals:
-            raise RuntimeError("No signals generated by strategies")
+            raise RuntimeError("No signals generated")
 
         self.signals_df = (
             pd.concat(all_signals)
@@ -160,103 +103,31 @@ class BacktestRunner:
             .reset_index(drop=True)
         )
 
-        print(f"📈 STRATEGIES | TOTAL {perf_counter() - t0:8.3f}s")
         return self.signals_df
 
     # ==================================================
-    # 3️⃣ BACKTEST WINDOWS
+    # 3️⃣ BACKTEST
     # ==================================================
 
-    def _iter_windows(self) -> Iterable[tuple[str, pd.Timestamp, pd.Timestamp]]:
-        """
-        Yields (window_name, start, end)
-        """
-        if self.cfg.BACKTEST_MODE == "single":
-            yield (
-                "FULL",
-                pd.Timestamp(self.cfg.TIMERANGE["start"], tz="UTC"),
-                pd.Timestamp(self.cfg.TIMERANGE["end"], tz="UTC"),
-            )
-            return
-
-        if self.cfg.BACKTEST_MODE == "split":
-            for name, (start, end) in self.cfg.BACKTEST_WINDOWS.items():
-                yield (
-                    name,
-                    pd.Timestamp(start, tz="UTC"),
-                    pd.Timestamp(end, tz="UTC"),
-                )
-            return
-
-        raise ValueError(f"Unknown BACKTEST_MODE: {self.cfg.BACKTEST_MODE}")
-
     def run_backtests(self) -> pd.DataFrame:
-        """
-        Runs backtests for:
-        - each strategy instance
-        - each symbol
-        - each window
-
-        Produces RAW trades dataframe.
-        """
         if self.signals_df is None:
-            raise RuntimeError("run_strategies must be called first")
+            raise RuntimeError("Signals not generated")
 
-        all_trades = []
+        backtester = Backtester(strategy=self.strategy)
+        self.trades_df = backtester.run(self.signals_df)
 
-        for window, start, end in self._iter_windows():
-            print(f"🧪 BACKTEST WINDOW | {window} [{start} → {end}]")
-
-            df_window = self.signals_df[
-                (self.signals_df["time"] >= start) &
-                (self.signals_df["time"] <= end)
-            ].copy()
-
-            if df_window.empty:
-                print(f"⚠️ No signals in window {window}")
-                continue
-
-            for strategy in self.strategies:
-                symbol = strategy.symbol
-
-                df_symbol = df_window[df_window["symbol"] == symbol]
-                if df_symbol.empty:
-                    continue
-
-                backtester = Backtester(strategy=strategy)
-
-                trades = backtester.run(
-                    df_signals=df_symbol,
-                    symbol=symbol,
-                    window=window,
-                    strategy_id=strategy.strategy_id
-                    if hasattr(strategy, "strategy_id")
-                    else type(strategy).__name__,
-                    strategy_name=type(strategy).__name__,
-                )
-
-                if not trades.empty:
-                    all_trades.append(trades)
-
-        if not all_trades:
-            raise RuntimeError("No trades after backtest")
-
-        self.trades_df = (
-            pd.concat(all_trades)
-            .sort_values(["strategy_id", "symbol", "exit_time"])
-            .reset_index(drop=True)
-        )
+        if self.trades_df.empty:
+            raise RuntimeError("No trades generated")
 
         return self.trades_df
 
-    def build_result(self) -> BacktestResult:
-        """
-        Build BacktestResult from current runner state.
-        Must be called AFTER run_backtests().
-        """
+    # ==================================================
+    # 4️⃣ RESULT BUILDING
+    # ==================================================
 
-        if self.trades_df is None or self.trades_df.empty:
-            raise RuntimeError("Cannot build result: no trades available")
+    def _build_result(self) -> BacktestResult:
+        if self.trades_df is None:
+            raise RuntimeError("No trades to build result")
 
         run_id = f"bt_{uuid4().hex[:8]}"
 
@@ -286,75 +157,36 @@ class BacktestRunner:
         )
 
     # ==================================================
-    # 4️⃣ REPORTING
-    # ==================================================
-
-    def run_report(self, result, run_path):
-        ReportRunner(
-            result=result,
-            config=self.cfg,
-            run_path=run_path,
-            plot_context=self.strategy.df_plot,
-        ).run()
-
-    # ==================================================
-    # 5️⃣ PLOTTING
-    # ==================================================
-
-    def plot_results(self):
-        plots_dir = "results/plots"
-        os.makedirs(plots_dir, exist_ok=True)
-
-        for strategy in self.strategies:
-            symbol = strategy.symbol
-
-            trades = None
-            if self.trades_df is not None:
-                trades = self.trades_df[self.trades_df["symbol"] == symbol]
-                if trades.empty:
-                    trades = None
-
-            plotter = TradePlotter(
-                df=strategy.df_plot,
-                trades=trades,
-                bullish_zones=strategy.get_bullish_zones(),
-                bearish_zones=strategy.get_bearish_zones(),
-                extra_series=strategy.get_extra_values_to_plot(),
-                bool_series=strategy.bool_series(),
-                title=f"{symbol} chart",
-            )
-
-            plotter.plot()
-            plotter.save(f"{plots_dir}/{symbol}.png")
-
-    # ==================================================
-    # 6️⃣ MAIN ENTRYPOINT
+    # 5️⃣ MAIN ENTRYPOINT
     # ==================================================
 
     def run(self):
         t0 = perf_counter()
         print("🚀 BacktestRunner | start")
 
-        # 1️⃣ DATA + STRATEGY
         all_data = self.load_data()
         self.run_strategies(all_data)
-
-        if self.cfg.PLOT_ONLY:
-            self.plot_results()
-            print(f"📊 Plot-only finished TOTAL {perf_counter() - t0:.3f}s")
-            return
-
-        # 2️⃣ BACKTEST
         self.run_backtests()
 
-        # 3️⃣ BUILD RESULT (SINGLE RESPONSIBILITY)
-        result = self.build_result()
-
-        # 4️⃣ SAVE RESULT (OFFLINE READY)
+        # --- build & save result ---
+        result = self._build_result()
         store = ResultStore()
         run_path = store.save(result)
 
-        # 5️⃣ REPORT (READ-ONLY CONSUMER)
-        self.run_report(result, run_path)
+        # --- report config ---
+        report_cfg = ReportConfig(
+            stdout_mode=StdoutMode.CONSOLE,
+            generate_dashboard=True,
+            persist_report=True,
+        )
+
+        # --- reporting ---
+        ReportRunner(
+            result=result,
+            config=self.cfg,
+            report_config=report_cfg,
+            run_path=run_path,
+            plot_context=self.strategy.df_plot,
+        ).run()
 
         print(f"🏁 Finished in {perf_counter() - t0:.2f}s")

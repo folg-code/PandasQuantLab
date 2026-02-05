@@ -37,65 +37,47 @@ class Backtester:
         self.cost_engine = cost_engine or TradeCostEngine(self.execution_policy)
 
     # ==================================================
-    # PUBLIC API
+    # MAIN API
     # ==================================================
 
-    def run(
-        self,
-        *,
-        df_signals: pd.DataFrame,
-        symbol: str,
-        window: str = "FULL",
-        strategy_id: Optional[str] = None,
-        strategy_name: Optional[str] = None,
-    ) -> pd.DataFrame:
+    def run(self, signals_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Run backtest for ONE (strategy, symbol, window).
+        Execute backtest on provided signals dataframe.
 
         Returns:
-            DataFrame with RAW trades.
+            pd.DataFrame with RAW trades (no equity, no analytics)
         """
-
-        if df_signals.empty:
+        if signals_df.empty:
             return pd.DataFrame()
 
-        trades = self._run_single_symbol(
-            df=df_signals,
-            symbol=symbol,
-        )
+        # --- validate ---
+        self._validate_signals(signals_df)
+
+        # --- core execution ---
+        trades = self._simulate_trades(signals_df)
 
         if trades.empty:
             return trades
 
-        # --------------------------------------------------
-        # 🔑 ATTACH METADATA (CONTRACT)
-        # --------------------------------------------------
 
-        trades["symbol"] = symbol
-        trades["window"] = window
-
-        if strategy_id is not None:
-            trades["strategy_id"] = strategy_id
-        else:
-            trades["strategy_id"] = type(self.strategy).__name__
-
-        if strategy_name is not None:
-            trades["strategy_name"] = strategy_name
-        else:
-            trades["strategy_name"] = type(self.strategy).__name__
-
-        return trades.reset_index(drop=True)
+        return trades
 
     # ==================================================
     # INTERNAL
     # ==================================================
 
-    def _run_single_symbol(
+    def _validate_signals(self, df: pd.DataFrame):
+        required = {"time", "symbol", "signal_entry"}
+        missing = required - set(df.columns)
+        if missing:
+            raise ValueError(f"Missing signal columns: {missing}")
+
+    def _simulate_trades(
         self,
-        *,
         df: pd.DataFrame,
-        symbol: str,
     ) -> pd.DataFrame:
+
+        symbol = df["symbol"].iloc[0] if "symbol" in df.columns else self.strategy.symbol
 
         # -----------------------------
         # 1️⃣ Instrument context
@@ -138,7 +120,7 @@ class Backtester:
         # 4️⃣ Cost enrichment (still RAW)
         # -----------------------------
         for trade in trades:
-            self.cost_engine.enrich(
+            self.cost_engine.apply(
                 trade_dict=trade,
                 df=df,
                 ctx=instrument_ctx,

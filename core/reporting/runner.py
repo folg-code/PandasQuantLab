@@ -1,7 +1,5 @@
 
-
-from core.backtesting.results.result import BacktestResult
-from config.backtest import INITIAL_BALANCE
+from config.backtest import INITIAL_BALANCE, StdoutMode
 from core.reporting.core.context import ReportContext
 from core.reporting.core.equity import EquityPreparer
 from core.reporting.core.formating import materialize
@@ -23,48 +21,66 @@ from core.reporting.reports.risk import RiskReport
 
 class ReportRunner:
     """
-    Strategy-agnostic report runner.
-
-    Input:
-    - BacktestResult (required)
-    - PlotContext (optional)
-
-    Does NOT:
-    - require strategy runtime
-    - require live backtest
+    Executes analytics + report rendering
+    based on BacktestResult.
     """
 
-    def __init__(self, *, result, config, run_path, plot_context=None, renderer=None):
+    def __init__(
+        self,
+        *,
+        result,
+        config,
+        report_config,
+        run_path,
+        plot_context=None,
+    ):
         self.result = result
         self.config = config
+        self.report_config = report_config
         self.run_path = run_path
         self.plot_context = plot_context
-        self.renderer = renderer or StdoutRenderer()
+
+        self.renderer = None
+
+        if report_config.stdout_mode == StdoutMode.CONSOLE:
+            self.renderer = StdoutRenderer()
+
+        elif report_config.stdout_mode == StdoutMode.OFF:
+            self.renderer = None
+
+        else:
+            raise NotImplementedError(
+                f"StdoutMode {report_config.stdout_mode} not supported yet"
+            )
+
+    # ==================================================
+    # MAIN
+    # ==================================================
 
     def run(self):
-        # ==================================================
-        # 1️⃣ PREPARE EQUITY & DRAWDOWN
-        # ==================================================
+        # -----------------------------
+        # ANALYTICS
+        # -----------------------------
 
-        equity_preparer = EquityPreparer(
+        preparer = EquityPreparer(
             initial_balance=self.config.INITIAL_BALANCE
         )
 
-        trades = equity_preparer.prepare(self.result.trades)
+        trades = preparer.prepare(self.result.trades)
 
         ctx = ReportContext(
             trades=trades,
             equity=trades["equity"],
             drawdown=trades["drawdown"],
             df_plot=self.plot_context,
-            initial_balance=INITIAL_BALANCE,
+            initial_balance=self.config.INITIAL_BALANCE,
             config=self.config,
             metadata=self.result.metadata,
         )
 
-        # ==================================================
-        # 2️⃣ BUILD REPORT
-        # ==================================================
+        # -----------------------------
+        # REPORT COMPUTATION
+        # -----------------------------
 
         report = RiskReport(
             sections=[
@@ -80,34 +96,34 @@ class ReportRunner:
                 CapitalExposureSection(),
             ]
         )
-
         data = materialize(report.compute(ctx))
 
-        # ==================================================
-        # 3️⃣ STDOUT RENDER (OPTIONAL)
-        # ==================================================
+        # -----------------------------
+        # STDOUT
+        # -----------------------------
 
         if self.renderer is not None:
             self.renderer.render(data)
 
-        # ==================================================
-        # 4️⃣ PERSIST REPORT (RELATIVE TO RUN)
-        # ==================================================
+        # -----------------------------
+        # PERSISTENCE
+        # -----------------------------
 
-        report_dir = self.run_path / "report"
-        report_dir.mkdir(parents=True, exist_ok=True)
+        if self.report_config.persist_report:
+            ReportPersistence(
+                base_path=self.run_path / "report"
+            ).persist(
+                trades=ctx.trades,
+                equity=ctx.equity,
+                report_data=data,
+                meta=self.result.metadata.to_dict(),
+            )
 
-        ReportPersistence(base_path=report_dir).persist(
-            trades=ctx.trades,
-            equity=ctx.equity,
-            report_data=data,
-            meta=self.result.metadata.to_dict(),
-        )
+        # -----------------------------
+        # DASHBOARD
+        # -----------------------------
 
-        # ==================================================
-        # 5️⃣ DASHBOARD (RELATIVE TO RUN)
-        # ==================================================
-
-        DashboardRenderer(run_path=self.run_path).render(data, ctx)
-
-        print("\n✅ Dashboard built successfully\n")
+        if self.report_config.generate_dashboard:
+            DashboardRenderer(
+                run_path=self.run_path
+            ).render(data, ctx)

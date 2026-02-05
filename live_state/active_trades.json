@@ -1,18 +1,1 @@
-{
-  "383653031": {
-    "trade_id": 383653031,
-    "symbol": "EURUSD",
-    "direction": "short",
-    "entry_price": 1.18151,
-    "volume": 0.0,
-    "sl": 1.182,
-    "tp1": 1.1810200000000002,
-    "tp2": 1.1805300000000003,
-    "tp1_executed": false,
-    "entry_time": "2026-02-04T16:58:00+00:00",
-    "entry_tag": "short",
-    "strategy": "Samplestrategy",
-    "strategy_config": {},
-    "ticket": 383653031
-  }
-}
+{}

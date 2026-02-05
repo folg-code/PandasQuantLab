@@ -21,7 +21,7 @@ class TradeCostEngine:
         self.execution_policy = execution_policy
 
 
-    def enrich(self, trade_dict: dict, *, df, ctx: InstrumentCtx) -> None:
+    def apply(self, trade_dict: dict, *, df, ctx: InstrumentCtx) -> None:
         attach_execution_types(
             trade_dict,
             df=df,
