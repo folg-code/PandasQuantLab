@@ -6,8 +6,6 @@ from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdow
 from FeatureEngineering.MarketStructure.engine import MarketStructureEngine
 from core.strategy.base import BaseStrategy
 from core.strategy.informatives import informative
-from core.strategy.trade_plan import TradePlan
-
 
 class Samplestrategy(BaseStrategy):
 

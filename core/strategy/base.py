@@ -52,9 +52,6 @@ class BaseStrategy(ABC):
                 tfs.add(fn._informative_timeframe)
         return sorted(tfs)
 
-    # ==================================================
-    # Strategy hooks (vector)
-    # ==================================================
 
     @abstractmethod
     def populate_indicators(self) -> None:
@@ -71,9 +68,6 @@ class BaseStrategy(ABC):
         """Write exit/management signals into self.df (e.g. signal_exit / custom_stop_loss)."""
         raise NotImplementedError
 
-    # ==================================================
-    # Decision layer (OPTIONAL by default)
-    # ==================================================
 
     def build_trade_plan_live(self, *, row: pd.Series, ctx: PlanBuildContext) -> TradePlan | None:
         """
@@ -114,9 +108,6 @@ class BaseStrategy(ABC):
         """
         return None
 
-    # ==================================================
-    # Optional hooks (called by orchestrators)
-    # ==================================================
 
     def validate(self) -> None:
         if "time" not in self.df.columns:

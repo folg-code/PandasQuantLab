@@ -1,15 +1,8 @@
-# core/strategy/trade_plan.py
-
 from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass, field
 from typing import Optional, Union, Dict, Any, Literal
-
-
-# ==========================================================
-# Exit plans
-# ==========================================================
 
 class ExitPlan(ABC):
     """
@@ -42,10 +35,6 @@ class ManagedExitPlan(ExitPlan):
     sl: float
     tp1: Optional[float] = None
 
-
-# ==========================================================
-# Trade plan (ENTRY contract)
-# ==========================================================
 
 @dataclass(frozen=True)
 class TradePlan:

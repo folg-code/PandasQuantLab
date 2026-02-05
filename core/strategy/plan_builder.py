@@ -14,7 +14,6 @@ class PlanBuildContext:
     symbol: str
     strategy_name: str
     strategy_config: Dict[str, Any]
-    # backtest can optionally size here; live can ignore and size later
     account_size: float | None = None
     max_risk_per_trade: float | None = None
 
@@ -23,7 +22,9 @@ class PlanBuildContext:
 # Helpers
 # ==========================================================
 
-def _extract_direction_tag(signal: Any) -> Tuple[Optional[Literal["long", "short"]], str]:
+def _extract_direction_tag(
+        signal: Any
+) -> Tuple[Optional[Literal["long", "short"]], str]:
     if not isinstance(signal, dict):
         return None, ""
     d = signal.get("direction")
@@ -76,11 +77,11 @@ def _has_dict(x: Any) -> bool:
     return isinstance(x, dict)
 
 
-# ==========================================================
-# Live (single row -> TradePlan)
-# ==========================================================
-
-def build_trade_plan_from_row(*, row: pd.Series, ctx: PlanBuildContext) -> TradePlan | None:
+def build_trade_plan_from_row(
+        *,
+        row: pd.Series,
+        ctx: PlanBuildContext
+) -> TradePlan | None:
     signal = row.get("signal_entry")
     levels = row.get("levels")
 
@@ -109,8 +110,6 @@ def build_trade_plan_from_row(*, row: pd.Series, ctx: PlanBuildContext) -> Trade
             return None
         exit_plan = FixedExitPlan(sl=sl, tp1=tp1, tp2=tp2)
 
-    # NOTE: volume is execution concern (live/backtest sizing),
-    # keep placeholder to satisfy dataclass contract.
     return TradePlan(
         symbol=ctx.symbol,
         direction=direction,
@@ -121,11 +120,6 @@ def build_trade_plan_from_row(*, row: pd.Series, ctx: PlanBuildContext) -> Trade
         strategy_name=ctx.strategy_name,
         strategy_config=dict(ctx.strategy_config),
     )
-
-
-# ==========================================================
-# Backtest (df -> plans_df)
-# ==========================================================
 
 def build_plans_frame(
     *,
@@ -184,7 +178,6 @@ def build_plans_frame(
         tp1_tag[i] = _extract_level_tag(lv, "TP1")
         tp2_tag[i] = _extract_level_tag(lv, "TP2")
 
-    # managed detection
     use_trailing = bool(ctx.strategy_config.get("USE_TRAILING", False))
     if use_trailing:
         is_managed = np.ones(n, dtype=bool)
@@ -217,7 +210,6 @@ def build_plans_frame(
     plans["plan_tp1"] = tp1
     plans["plan_tp2"] = tp2
 
-    # NEW: tags
     plans["plan_sl_tag"] = sl_tag
     plans["plan_tp1_tag"] = tp1_tag
     plans["plan_tp2_tag"] = tp2_tag
