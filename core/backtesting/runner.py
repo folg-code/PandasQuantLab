@@ -15,8 +15,8 @@ from core.data_provider.providers.default_provider import DefaultOhlcvDataProvid
 from core.backtesting.backtester import Backtester
 from core.backtesting.plotting.plot import TradePlotter
 
-from core.strategy.runner import run_strategy_single
-from core.strategy.strategy_loader import load_strategy_class
+from core.backtesting.strategy_runner import run_strategy_single
+from core.live_trading.strategy_loader import load_strategy_class
 
 
 class BacktestRunner:
@@ -31,7 +31,6 @@ class BacktestRunner:
 
     def __init__(self, cfg):
         self.config = cfg
-        self.provider = None
 
         # 🔑 STRATEGY CONTRACT
         self.strategy = None          # reference strategy (for reporting config)
@@ -167,7 +166,7 @@ class BacktestRunner:
         if df_slice.empty:
             raise RuntimeError(f"No signals in window: {label}")
 
-        backtester = Backtester(slippage=self.config.SLIPPAGE)
+        backtester = Backtester(strategy=self.strategy)
         trades = backtester.run_backtest(df_slice)
         trades["window"] = label
         return trades
