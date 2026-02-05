@@ -25,7 +25,6 @@ class ConditionalEntryTagPerformanceSection(ReportSection):
         if "entry_tag" not in trades.columns:
             return {"error": "entry_tag missing"}
 
-        trades["entry_time"] = trades["entry_time"].astype("datetime64[ns, UTC]")
         trades["hour"] = trades["entry_time"].dt.hour
         trades["weekday"] = trades["entry_time"].dt.day_name()
 

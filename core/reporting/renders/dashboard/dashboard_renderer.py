@@ -1,21 +1,22 @@
 from pathlib import Path
-from jinja2 import Environment, FileSystemLoader
 import json
 import shutil
+from jinja2 import Environment, FileSystemLoader
 
 
 class DashboardRenderer:
     """
-    Renders RiskReport output into a single-page HTML dashboard.
-    NO computations. Layout handled in HTML/CSS.
+    Renders RiskReport into HTML dashboard.
+    NO computations.
     """
 
-    def __init__(self):
+    def __init__(self, run_path: Path):
         base = Path(__file__).parent
         self.template_dir = base / "templates"
         self.static_dir = base / "static"
-        self.output_dir = Path("dashboard_output")
-        self.output_dir.mkdir(exist_ok=True)
+
+        self.output_dir = run_path / "report"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.env = Environment(
             loader=FileSystemLoader(self.template_dir),
@@ -34,9 +35,9 @@ class DashboardRenderer:
                         "time": ctx.trades["exit_time"].astype(str).tolist(),
                         "equity": ctx.trades["equity"].tolist(),
                         "drawdown": ctx.trades["drawdown"].tolist(),
-                    }
+                    },
                 },
-                default=str
+                default=str,
             ),
         )
 
@@ -47,9 +48,8 @@ class DashboardRenderer:
         return out
 
     def _copy_static(self):
-
         target = self.output_dir / "static"
         if target.exists():
             shutil.rmtree(target)
-
         shutil.copytree(self.static_dir, target)
+

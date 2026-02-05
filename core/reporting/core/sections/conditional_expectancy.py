@@ -23,8 +23,6 @@ class ConditionalExpectancySection(ReportSection):
         if trades.empty:
             return {"error": "No trades available"}
 
-        trades["entry_time"] = trades["entry_time"].astype("datetime64[ns, UTC]")
-
         results: Dict[str, Any] = {}
         issues = []
 

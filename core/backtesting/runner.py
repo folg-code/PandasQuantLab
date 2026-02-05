@@ -2,10 +2,13 @@ import os
 from time import perf_counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Iterable
+from uuid import uuid4
 
 import pandas as pd
 
-from config.backtest import INITIAL_BALANCE
+from core.backtesting.results.metadata import BacktestMetadata
+from core.backtesting.results.result import BacktestResult
+from core.backtesting.results.store import ResultStore
 from core.data_provider import CsvMarketDataCache
 from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
 from core.backtesting.backend_factory import create_backtest_backend
@@ -16,8 +19,6 @@ from core.backtesting.plotting.plot import TradePlotter
 
 from core.backtesting.strategy_runner import run_strategy_single
 from core.live_trading.strategy_loader import load_strategy_class
-from core.reporting.core.contex_enricher import TradeContextEnricher
-from core.reporting.core.preparer import RiskDataPreparer
 from core.reporting.runner import ReportRunner
 
 
@@ -248,36 +249,52 @@ class BacktestRunner:
 
         return self.trades_df
 
+    def build_result(self) -> BacktestResult:
+        """
+        Build BacktestResult from current runner state.
+        Must be called AFTER run_backtests().
+        """
+
+        if self.trades_df is None or self.trades_df.empty:
+            raise RuntimeError("Cannot build result: no trades available")
+
+        run_id = f"bt_{uuid4().hex[:8]}"
+
+        metadata = BacktestMetadata.now(
+            run_id=run_id,
+            backtest_mode=self.cfg.BACKTEST_MODE,
+            windows=(
+                self.cfg.BACKTEST_WINDOWS
+                if self.cfg.BACKTEST_MODE == "split"
+                else None
+            ),
+            strategies=[s.get_strategy_id() for s in self.strategies],
+            strategy_names={
+                s.get_strategy_id(): s.get_strategy_name()
+                for s in self.strategies
+            },
+            symbols=self.cfg.SYMBOLS,
+            timeframe=self.cfg.TIMEFRAME,
+            initial_balance=self.cfg.INITIAL_BALANCE,
+            slippage=self.cfg.SLIPPAGE,
+            max_risk_per_trade=self.cfg.MAX_RISK_PER_TRADE,
+        )
+
+        return BacktestResult(
+            metadata=metadata,
+            trades=self.trades_df,
+        )
+
     # ==================================================
     # 4️⃣ REPORTING
     # ==================================================
 
-    def run_report(self):
-        """
-        Runs analytics + report on FULL dataset.
-        """
-        if self.trades_df is None:
-            raise RuntimeError("No trades to report")
-
-        # -----------------------------
-        # ANALYTICS LAYER
-        # -----------------------------
-        preparer = RiskDataPreparer(initial_balance=INITIAL_BALANCE)
-        analytics_df = preparer.prepare(self.trades_df)
-
-        enricher = TradeContextEnricher(self.strategy.df_plot)
-        analytics_df = enricher.enrich(
-            analytics_df,
-            self.strategy.report_config.contexts,
-        )
-
-        # -----------------------------
-        # REPORT
-        # -----------------------------
+    def run_report(self, result, run_path):
         ReportRunner(
-            strategy=self.strategy,
-            trades_df=analytics_df,
+            result=result,
             config=self.cfg,
+            run_path=run_path,
+            plot_context=self.strategy.df_plot,
         ).run()
 
     # ==================================================
@@ -318,6 +335,7 @@ class BacktestRunner:
         t0 = perf_counter()
         print("🚀 BacktestRunner | start")
 
+        # 1️⃣ DATA + STRATEGY
         all_data = self.load_data()
         self.run_strategies(all_data)
 
@@ -326,7 +344,17 @@ class BacktestRunner:
             print(f"📊 Plot-only finished TOTAL {perf_counter() - t0:.3f}s")
             return
 
+        # 2️⃣ BACKTEST
         self.run_backtests()
-        self.run_report()
 
-        print(f"🏁 Full run finished TOTAL {perf_counter() - t0:.3f}s")
+        # 3️⃣ BUILD RESULT (SINGLE RESPONSIBILITY)
+        result = self.build_result()
+
+        # 4️⃣ SAVE RESULT (OFFLINE READY)
+        store = ResultStore()
+        run_path = store.save(result)
+
+        # 5️⃣ REPORT (READ-ONLY CONSUMER)
+        self.run_report(result, run_path)
+
+        print(f"🏁 Finished in {perf_counter() - t0:.2f}s")

@@ -30,8 +30,8 @@ def run_strategy_single(
         startup_candle_count=startup_candle_count,
     )
 
-    report_config = strategy.build_report_config()
-    strategy.report_config = report_config
+    report_spec = strategy.build_report_spec()
+    strategy.report_spec = report_spec
 
     # -------------------------------------------------
     # FINALIZE DATAFRAMES (EXPLICIT CONTRACT)
@@ -81,6 +81,6 @@ def run_strategy_single(
     strategy.df_signals = df_signals
 
     # report configuration (strategy declaration → runtime state)
-    strategy.report_config = strategy.build_report_config()
+    strategy.report_spec = strategy.build_report_spec()
 
     return df_signals, strategy

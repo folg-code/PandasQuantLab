@@ -14,10 +14,25 @@ class ContextSpec:
 
 @dataclass
 class ReportContext:
+    # --- core data ---
     trades: pd.DataFrame
     equity: pd.Series | None
     drawdown: pd.Series | None
-    df_plot: pd.DataFrame
+
+    df_plot: pd.DataFrame | None
+
     initial_balance: float
     config: Any
-    strategy: Any
+
+    metadata: Any | None = None
+
+    strategy: Any | None = None
+
+    def __post_init__(self):
+        """
+        Adapter layer:
+        - old code expects ctx.strategy
+        - new code should use ctx.metadata
+        """
+        if self.strategy is None and self.metadata is not None:
+            self.strategy = self.metadata

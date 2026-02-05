@@ -2,23 +2,32 @@ import pandas as pd
 
 
 class RiskDataPreparer:
-    """
-    Prepares trades DataFrame for risk metrics.
-    Adds equity curve and drawdown-related columns.
-    """
-
-    def __init__(self, initial_balance: float):
+    def __init__(self, initial_balance: float, timezone: str = "UTC"):
         self.initial_balance = initial_balance
+        self.timezone = timezone
 
     def prepare(self, trades: pd.DataFrame) -> pd.DataFrame:
-        if trades.empty:
-            return trades
+        trades = trades.copy()
 
-        df = trades.sort_values("exit_time").copy()
+        for col in ("entry_time", "exit_time"):
+            if col not in trades.columns:
+                continue
 
-        df["equity"] = self.initial_balance + df["pnl_net_usd"].cumsum()
+            if not pd.api.types.is_datetime64_any_dtype(trades[col]):
+                trades[col] = pd.to_datetime(trades[col])
 
-        df["equity_peak"] = df["equity"].cummax()
-        df["drawdown"] = df["equity_peak"] - df["equity"]
+            if trades[col].dt.tz is None:
+                trades[col] = trades[col].dt.tz_localize(self.timezone)
 
-        return df
+            else:
+                trades[col] = trades[col].dt.tz_convert(self.timezone)
+
+        trades = trades.sort_values("exit_time").reset_index(drop=True)
+
+
+        trades["equity"] = self.initial_balance + trades["pnl_usd"].cumsum()
+
+        running_max = trades["equity"].cummax()
+        trades["drawdown"] = trades["equity"] - running_max
+
+        return trades

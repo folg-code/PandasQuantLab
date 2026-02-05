@@ -8,6 +8,7 @@ from core.strategy.base import BaseStrategy
 from core.strategy.informatives import informative
 
 class Samplestrategy(BaseStrategy):
+    strategy_name = "Sample Strategy (Report)"
 
     def __init__(
             self,
@@ -144,10 +145,10 @@ class Samplestrategy(BaseStrategy):
 
         return df
 
-    def build_report_config(self):
+    def build_report_spec(self):
         return (
             super()
-            .build_report_config()
+            .build_report_spec()
             .add_metric(ExpectancyMetric())
             .add_metric(MaxDrawdownMetric())
             .add_context(
