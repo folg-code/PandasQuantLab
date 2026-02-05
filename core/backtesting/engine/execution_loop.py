@@ -14,7 +14,6 @@ def run_execution_loop(
     *,
     df: pd.DataFrame,
     symbol: str,
-    strategy,
     plans: pd.DataFrame,
     instrument_ctx: InstrumentCtx,
 ) -> list[dict]:

@@ -1,5 +1,7 @@
+import pandas as pd
 
 from config.backtest import INITIAL_BALANCE, StdoutMode
+from core.reporting.core.contex_enricher import TradeContextEnricher
 from core.reporting.core.context import ReportContext
 from core.reporting.core.equity import EquityPreparer
 from core.reporting.core.formating import materialize
@@ -22,35 +24,37 @@ from core.reporting.reports.risk import RiskReport
 class ReportRunner:
     """
     Executes analytics + report rendering
-    based on BacktestResult.
+    for ONE StrategyRunResult.
     """
 
     def __init__(
         self,
         *,
-        result,
+        trades: pd.DataFrame,
+        df_context: pd.DataFrame,
+        report_spec,
+        metadata,
         config,
         report_config,
         run_path,
-        plot_context=None,
     ):
-        self.result = result
+        self.trades = trades
+        self.df_context = df_context
+        self.report_spec = report_spec
+        self.metadata = metadata
         self.config = config
         self.report_config = report_config
         self.run_path = run_path
-        self.plot_context = plot_context
 
         self.renderer = None
 
         if report_config.stdout_mode == StdoutMode.CONSOLE:
             self.renderer = StdoutRenderer()
-
         elif report_config.stdout_mode == StdoutMode.OFF:
             self.renderer = None
-
         else:
             raise NotImplementedError(
-                f"StdoutMode {report_config.stdout_mode} not supported yet"
+                f"StdoutMode {report_config.stdout_mode} not supported"
             )
 
     # ==================================================
@@ -66,16 +70,22 @@ class ReportRunner:
             initial_balance=self.config.INITIAL_BALANCE
         )
 
-        trades = preparer.prepare(self.result.trades)
+        trades = preparer.prepare(self.trades)
+
+        enricher = TradeContextEnricher(self.df_context)
+        trades = enricher.enrich(
+            trades,
+            self.report_spec.contexts
+        )
 
         ctx = ReportContext(
             trades=trades,
             equity=trades["equity"],
             drawdown=trades["drawdown"],
-            df_plot=self.plot_context,
+            df_plot=self.df_context,
             initial_balance=self.config.INITIAL_BALANCE,
             config=self.config,
-            metadata=self.result.metadata,
+            metadata=self.metadata,
         )
 
         # -----------------------------
@@ -96,6 +106,7 @@ class ReportRunner:
                 CapitalExposureSection(),
             ]
         )
+
         data = materialize(report.compute(ctx))
 
         # -----------------------------
@@ -111,12 +122,12 @@ class ReportRunner:
 
         if self.report_config.persist_report:
             ReportPersistence(
-                base_path=self.run_path / "report"
+                base_path=self.run_path / "report" / self.metadata.run_id
             ).persist(
                 trades=ctx.trades,
                 equity=ctx.equity,
                 report_data=data,
-                meta=self.result.metadata.to_dict(),
+                meta=self.metadata.to_dict(),
             )
 
         # -----------------------------
@@ -125,5 +136,5 @@ class ReportRunner:
 
         if self.report_config.generate_dashboard:
             DashboardRenderer(
-                run_path=self.run_path
+                run_path=self.run_path / "dashboard" / self.metadata.run_id
             ).render(data, ctx)

@@ -1,3 +1,5 @@
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from time import perf_counter
 from uuid import uuid4
 
@@ -6,13 +8,15 @@ import pandas as pd
 from config.report_config import ReportConfig, StdoutMode
 from core.backtesting.backend_factory import create_backtest_backend
 from core.backtesting.engine.backtester import Backtester
+from core.backtesting.engine.worker import run_backtest_worker, run_strategy_worker
 from core.backtesting.results.metadata import BacktestMetadata
 from core.backtesting.results.result import BacktestResult
 from core.backtesting.results.store import ResultStore
-from core.backtesting.strategy_runner import run_strategy_single
+from core.backtesting.strategy_runner import run_strategy_single, StrategyRunResult
 from core.data_provider import DefaultOhlcvDataProvider, CsvMarketDataCache
 from core.live_trading.strategy_loader import load_strategy_class
 from core.reporting.runner import ReportRunner
+from core.reporting.summary_runner import SummaryReportRunner
 
 
 class BacktestRunner:
@@ -42,7 +46,15 @@ class BacktestRunner:
     # 1️⃣ DATA LOADING
     # ==================================================
 
-    def load_data(self) -> dict[str, pd.DataFrame]:
+    def load_data(self) -> dict[str, dict[str, pd.DataFrame]]:
+        strategy_cls = load_strategy_class(self.cfg.STRATEGY_CLASS)
+
+        # --- informatives declared by strategy ---
+        informative_tfs = strategy_cls.get_required_informatives()
+        base_tf = self.cfg.TIMEFRAME
+
+        all_tfs = [base_tf] + informative_tfs
+
         backend = create_backtest_backend(self.cfg.BACKTEST_DATA_BACKEND)
 
         start = pd.Timestamp(self.cfg.TIMERANGE["start"], tz="UTC")
@@ -55,50 +67,68 @@ class BacktestRunner:
             backtest_end=end,
         )
 
-        all_data = {}
+        all_data: dict[str, dict[str, pd.DataFrame]] = {}
 
         for symbol in self.cfg.SYMBOLS:
-            df = self.provider.get_ohlcv(
-                symbol=symbol,
-                timeframe=self.cfg.TIMEFRAME,
-                start=start,
-                end=end,
-            )
-            all_data[symbol] = df
+            per_symbol = {}
+
+            for tf in all_tfs:
+                per_symbol[tf] = self.provider.get_ohlcv(
+                    symbol=symbol,
+                    timeframe=tf,
+                    start=start,
+                    end=end,
+                )
+
+            all_data[symbol] = per_symbol
 
         return all_data
-
     # ==================================================
     # 2️⃣ STRATEGY EXECUTION
     # ==================================================
 
-    def run_strategies(self, all_data: dict[str, pd.DataFrame]) -> pd.DataFrame:
-        all_signals = []
-        self.strategies = []
-        self.strategy = None
-
+    def run_strategies(self, all_data: dict[str, dict[str, pd.DataFrame]]) -> pd.DataFrame:
         strategy_cls = load_strategy_class(self.cfg.STRATEGY_CLASS)
 
-        for symbol, df in all_data.items():
-            df_signals, strategy = run_strategy_single(
+        self.strategy_runs: list[StrategyRunResult] = []
+
+        # ---------- FAST PATH ----------
+        if len(all_data) == 1:
+            symbol, data_by_tf = next(iter(all_data.items()))
+            result = run_strategy_single(
                 symbol=symbol,
-                df=df,
-                provider=self.provider,
+                data_by_tf=data_by_tf,
                 strategy_cls=strategy_cls,
                 startup_candle_count=self.cfg.STARTUP_CANDLE_COUNT,
             )
+            self.strategy_runs = [result]
+            self.signals_df = result.df_signals
+            return self.signals_df
 
-            all_signals.append(df_signals)
-            self.strategies.append(strategy)
+        # ---------- PARALLEL PATH ----------
+        futures = []
 
-            if self.strategy is None:
-                self.strategy = strategy
+        with ProcessPoolExecutor() as executor:
+            for symbol, data_by_tf in all_data.items():
+                futures.append(
+                    executor.submit(
+                        run_strategy_worker,
+                        symbol=symbol,
+                        data_by_tf=data_by_tf,
+                        strategy_cls=strategy_cls,
+                        startup_candle_count=self.cfg.STARTUP_CANDLE_COUNT,
+                    )
+                )
 
-        if not all_signals:
-            raise RuntimeError("No signals generated")
+            for f in as_completed(futures):
+                self.strategy_runs.append(f.result())
+
+        # ==================================================
+        # AGGREGATE SIGNALS
+        # ==================================================
 
         self.signals_df = (
-            pd.concat(all_signals)
+            pd.concat([r.df_signals for r in self.strategy_runs])
             .sort_values(["time", "symbol"])
             .reset_index(drop=True)
         )
@@ -110,14 +140,57 @@ class BacktestRunner:
     # ==================================================
 
     def run_backtests(self) -> pd.DataFrame:
-        if self.signals_df is None:
-            raise RuntimeError("Signals not generated")
+        if not self.strategy_runs:
+            raise RuntimeError("No strategy runs to backtest")
 
-        backtester = Backtester(strategy=self.strategy)
-        self.trades_df = backtester.run(self.signals_df)
+        self.trades_by_run: list[pd.DataFrame] = []
 
-        if self.trades_df.empty:
+        # -----------------------------
+        # FAST PATH (single run)
+        # -----------------------------
+        if len(self.strategy_runs) == 1:
+            run = self.strategy_runs[0]
+
+            backtester = Backtester()
+            trades = backtester.run(
+                signals_df=run.df_signals,
+                trade_plans=run.trade_plans,
+            )
+
+            self.trades_by_run = [trades]
+            self.trades_df = trades
+            return trades
+
+        # -----------------------------
+        # PARALLEL PATH (multi run)
+        # -----------------------------
+        futures = []
+
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+            for run in self.strategy_runs:
+                futures.append(
+                    executor.submit(
+                        run_backtest_worker,
+                        signals_df=run.df_signals,
+                        trade_plans=run.trade_plans,
+                    )
+                )
+
+            for future in as_completed(futures):
+                trades = future.result()
+                self.trades_by_run.append(trades)
+
+        if not self.trades_by_run:
             raise RuntimeError("No trades generated")
+
+        # -----------------------------
+        # AGGREGATE (OPTIONAL GLOBAL VIEW)
+        # -----------------------------
+        self.trades_df = (
+            pd.concat(self.trades_by_run)
+            .sort_values("exit_time")
+            .reset_index(drop=True)
+        )
 
         return self.trades_df
 
@@ -162,31 +235,78 @@ class BacktestRunner:
 
     def run(self):
         t0 = perf_counter()
+        t = t0
+
+        def log(step: str):
+            nonlocal t
+            now = perf_counter()
+            print(f"⏱️ {step:<30} +{now - t:6.2f}s | total {now - t0:6.2f}s")
+            t = now
+
         print("🚀 BacktestRunner | start")
 
+        # =====================
+        # LOAD DATA
+        # =====================
         all_data = self.load_data()
+        log("load_data")
+
+        # =====================
+        # STRATEGY LOGIC
+        # =====================
         self.run_strategies(all_data)
+        log("run_strategies")
+
+        # =====================
+        # BACKTESTS
+        # =====================
         self.run_backtests()
+        log("run_backtests")
 
-        # --- build & save result ---
+        # =====================
+        # PERSIST RAW RESULTS
+        # =====================
         result = self._build_result()
-        store = ResultStore()
-        run_path = store.save(result)
+        run_path = ResultStore().save(result)
+        log("persist_results")
 
-        # --- report config ---
-        report_cfg = ReportConfig(
-            stdout_mode=StdoutMode.CONSOLE,
-            generate_dashboard=True,
-            persist_report=True,
-        )
+        # =====================
+        # PER SYMBOL REPORTS
+        # =====================
+        for run, trades in zip(self.strategy_runs, self.trades_by_run):
+            t_sym = perf_counter()
 
-        # --- reporting ---
-        ReportRunner(
-            result=result,
+            ReportRunner(
+                trades=trades,
+                df_context=run.df_context,
+                report_spec=run.report_spec,
+                metadata=result.metadata,
+                config=self.cfg,
+                report_config=ReportConfig(
+                    stdout_mode=StdoutMode.OFF,
+                    generate_dashboard=True,
+                    persist_report=True,
+                ),
+                run_path=run_path / "per_symbol" / run.symbol,
+            ).run()
+
+            print(
+                f"   📊 report[{run.symbol}]"
+                f" +{perf_counter() - t_sym:5.2f}s"
+            )
+
+        log("per_symbol_reports")
+
+        # =====================
+        # SUMMARY REPORT
+        # =====================
+        SummaryReportRunner(
+            strategy_runs=self.strategy_runs,
+            trades_by_run=self.trades_by_run,
             config=self.cfg,
-            report_config=report_cfg,
             run_path=run_path,
-            plot_context=self.strategy.df_plot,
         ).run()
+
+        log("summary_report")
 
         print(f"🏁 Finished in {perf_counter() - t0:.2f}s")

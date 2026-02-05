@@ -6,9 +6,7 @@ def execute_strategy(
     *,
     strategy,
     df: pd.DataFrame,
-    provider,
-    symbol: str,
-    startup_candle_count: int,
+    data_by_tf: dict[str, pd.DataFrame],
 ) -> pd.DataFrame:
     """
     Shared strategy execution pipeline.
@@ -18,9 +16,7 @@ def execute_strategy(
     df = apply_informatives(
         df=df,
         strategy=strategy,
-        provider=provider,
-        symbol=symbol,
-        startup_candle_count=startup_candle_count,
+        data_by_tf=data_by_tf,
     )
 
     strategy.df = df

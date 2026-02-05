@@ -94,10 +94,6 @@ class DukascopyClient:
             cwd=workdir,
             stdout=None,
             stderr=None,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
         )
 
         if proc.returncode != 0:

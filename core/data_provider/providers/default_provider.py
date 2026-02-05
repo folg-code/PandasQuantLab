@@ -70,22 +70,24 @@ class DefaultOhlcvDataProvider:
     # -------------------------------------------------
 
     def get_ohlcv(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        start: pd.Timestamp,
-        end: pd.Timestamp,
+            self,
+            *,
+            symbol: str,
+            timeframe: str,
+            start: pd.Timestamp,
+            end: pd.Timestamp,
     ) -> pd.DataFrame:
 
         start = self._to_utc(start)
         end = self._to_utc(end)
 
+        def log(msg: str):
+            print(f"📈 OHLCV | {symbol:<10} {timeframe:<4} | {msg}")
+
         coverage = self.cache.coverage(
             symbol=symbol,
             timeframe=timeframe,
         )
-
 
         pieces: list[pd.DataFrame] = []
 
@@ -93,6 +95,7 @@ class DefaultOhlcvDataProvider:
         # 1️⃣ NO CACHE AT ALL
         # =================================================
         if coverage is None:
+            log("cache: MISS (no data) → fetch full range")
             df = self.backend.fetch_ohlcv(
                 symbol=symbol,
                 timeframe=timeframe,
@@ -100,19 +103,22 @@ class DefaultOhlcvDataProvider:
                 end=end,
             )
             df = self._validate(df)
+            log(f"fetched {len(df)} bars → saved to cache")
             self.cache.save(symbol=symbol, timeframe=timeframe, df=df)
             return df
 
         cov_start, cov_end = coverage
-
-        # =================================================
-        # 2️⃣ MISSING BEFORE (FIXED)
-        # =================================================
+        log(f"cache coverage: {cov_start} → {cov_end}")
 
         freq = timeframe_to_pandas_freq(timeframe)
         first_required_bar = start.floor(freq)
+        last_required_bar = end.floor(freq)
 
+        # =================================================
+        # 2️⃣ MISSING BEFORE
+        # =================================================
         if first_required_bar < cov_start:
+            log(f"cache MISS before → fetch [{first_required_bar} → {cov_start}]")
             df_pre = self.backend.fetch_ohlcv(
                 symbol=symbol,
                 timeframe=timeframe,
@@ -121,32 +127,34 @@ class DefaultOhlcvDataProvider:
             )
             df_pre = self._validate(df_pre)
             if not df_pre.empty:
-                self.cache.append(
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    df=df_pre,
-                )
+                self.cache.append(symbol=symbol, timeframe=timeframe, df=df_pre)
                 pieces.append(df_pre)
+                log(f"fetched {len(df_pre)} bars (pre)")
+            else:
+                log("no bars fetched (pre)")
+        else:
+            log("cache HIT before")
 
         # =================================================
         # 3️⃣ CACHED MIDDLE
         # =================================================
+        mid_start = max(start, cov_start)
+        mid_end = min(end, cov_end)
+
         df_mid = self.cache.load_range(
             symbol=symbol,
             timeframe=timeframe,
-            start=max(start, cov_start),
-            end=min(end, cov_end),
+            start=mid_start,
+            end=mid_end,
         )
         pieces.append(df_mid)
+        log(f"cache HIT middle → loaded {len(df_mid)} bars")
 
         # =================================================
-        # 4️⃣ MISSING AFTER (FIXED)
+        # 4️⃣ MISSING AFTER
         # =================================================
-
-        freq = timeframe_to_pandas_freq(timeframe)
-        last_required_bar = end.floor(freq)
-
         if last_required_bar > cov_end:
+            log(f"cache MISS after → fetch [{cov_end} → {last_required_bar}]")
             df_post = self.backend.fetch_ohlcv(
                 symbol=symbol,
                 timeframe=timeframe,
@@ -155,17 +163,20 @@ class DefaultOhlcvDataProvider:
             )
             df_post = self._validate(df_post)
             if not df_post.empty:
-                self.cache.append(
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    df=df_post,
-                )
+                self.cache.append(symbol=symbol, timeframe=timeframe, df=df_post)
                 pieces.append(df_post)
+                log(f"fetched {len(df_post)} bars (post)")
+            else:
+                log("no bars fetched (post)")
+        else:
+            log("cache HIT after")
 
         # =================================================
         # 5️⃣ FINAL MERGE
         # =================================================
         df = pd.concat(pieces, ignore_index=True)
+        log(f"final merge → {len(df)} bars total")
+
         return self._validate(df)
 
     # -------------------------------------------------

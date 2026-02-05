@@ -13,8 +13,8 @@ BACKTEST_DATA_BACKEND = "dukascopy"   # "dukascopy", "csv", ...
 SERVER_TIMEZONE = "UTC"
 
 TIMERANGE = {
-    "start": "2025-12-15",
-    "end":   "2025-12-31",
+    "start": "2025-01-01",
+    "end":   "2025-12-29",
 }
 
 BACKTEST_MODE = "single"  # "single" | "split"
@@ -34,7 +34,6 @@ MISSING_DATA_HANDLING = "Forward-fill OHLC gaps"
 
 STRATEGY_CLASS = "Samplestrategyreport"
 
-# Human-readable (reports / dashboards)
 STRATEGY_NAME = "Sample Strategy"
 STRATEGY_DESCRIPTION = "Sample strategy for dashboard showcase"
 
@@ -42,6 +41,7 @@ STARTUP_CANDLE_COUNT = 600
 
 SYMBOLS = [
     "XAUUSD",
+    #"EURUSD"
 ]
 
 TIMEFRAME = "M1"

@@ -120,7 +120,7 @@ class ConditionalExpectancySection(ReportSection):
             "returns", "entry_tag", "exit_tag",
             "exit_level_tag", "duration", "window",
             "equity", "equity_peak", "drawdown",
-            "hour", "weekday",
+            "hour", "weekday", "tp1_price", "tp1_pnl",
 
             "exec_type_entry",
             "exec_type_tp1",
@@ -143,6 +143,10 @@ class ConditionalExpectancySection(ReportSection):
 
             "costs_usd_total",
             "pnl_net_usd",
+            "strategy_id",
+            "financing_usd_weekend",
+            "financing_usd_overnight",
+            "financing_usd_total"
         }
 
         cols = []

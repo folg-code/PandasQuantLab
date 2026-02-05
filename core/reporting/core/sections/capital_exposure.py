@@ -111,7 +111,7 @@ class CapitalExposureSection(ReportSection):
         )
 
         grouped = (
-            daily.groupby("bucket")
+            daily.groupby("bucket", observed=True)
             .agg(
                 days=("day", "count"),
                 avg_trades=("trades", "mean"),
