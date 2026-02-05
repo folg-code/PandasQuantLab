@@ -74,7 +74,7 @@ class SummaryReportRunner:
             trades=trades_all,
             equity=trades_all["equity"],
             drawdown=trades_all["drawdown"],
-            df_plot=None,  # ❗ no candle context at portfolio level
+            df_plot=None,
             initial_balance=self.config.INITIAL_BALANCE,
             config=self.config,
             metadata={

@@ -9,9 +9,9 @@ from config.report_config import ReportConfig, StdoutMode
 from core.backtesting.backend_factory import create_backtest_backend
 from core.backtesting.engine.backtester import Backtester
 from core.backtesting.engine.worker import run_backtest_worker, run_strategy_worker
-from core.backtesting.results.metadata import BacktestMetadata
-from core.backtesting.results.result import BacktestResult
-from core.backtesting.results.store import ResultStore
+from core.backtesting.results_logic.metadata import BacktestMetadata
+from core.backtesting.results_logic.result import BacktestResult
+from core.backtesting.results_logic.store import ResultStore
 from core.backtesting.strategy_runner import run_strategy_single, StrategyRunResult
 from core.data_provider import DefaultOhlcvDataProvider, CsvMarketDataCache
 from core.live_trading.strategy_loader import load_strategy_class

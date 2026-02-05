@@ -99,10 +99,10 @@ class StdoutMode(str, Enum):
     FILE = "file"
     BOTH = "both"
 
-REPORT_STDOUT_MODE = StdoutMode.CONSOLE
+REPORT_STDOUT_MODE = StdoutMode.OFF
 
 # Used only if FILE or BOTH
-REPORT_STDOUT_FILE = "results/stdout_report.txt"
+REPORT_STDOUT_FILE = "results_logic/stdout_report.txt"
 
 # ---- Dashboard / persistence ----
 GENERATE_DASHBOARD = True
