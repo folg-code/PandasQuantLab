@@ -1,7 +1,7 @@
-from core.backtesting.reporting.core.aggregration import ContextualAggregator
-from core.backtesting.reporting.core.base import BaseReport
-from core.backtesting.reporting.core.context import ReportContext
-from core.backtesting.reporting.core.section import ReportSection
+from core.reporting.core.aggregration import ContextualAggregator
+from core.reporting.core.base import BaseReport
+from core.reporting.core.context import ReportContext
+from core.reporting.core.section import ReportSection
 
 
 class RiskMonitoringReport(BaseReport):

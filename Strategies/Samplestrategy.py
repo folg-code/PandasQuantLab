@@ -1,8 +1,8 @@
 import pandas as pd
 import talib.abstract as ta
 
-from core.backtesting.reporting.core.context import ContextSpec
-from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
+from core.reporting.core.context import ContextSpec
+from core.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
 from FeatureEngineering.MarketStructure.engine import MarketStructureEngine
 from core.strategy.base import BaseStrategy
 from core.strategy.informatives import informative

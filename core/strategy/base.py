@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from core.backtesting.reporting.config.report_config import ReportConfig
-from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
+from core.reporting.config.report_config import ReportConfig
+from core.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
 from core.strategy.plan_builder import PlanBuildContext, build_trade_plan_from_row, build_plans_frame
 from core.strategy.trade_plan import TradePlan, TradeAction
 

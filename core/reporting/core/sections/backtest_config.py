@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from typing import Any, Dict, Optional, List
 
-from core.backtesting.reporting.core.section import ReportSection
+from core.reporting.core.section import ReportSection
 
 
 def extract_informative_timeframes(strategy: Any) -> Optional[List[str]]:

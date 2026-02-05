@@ -4,8 +4,8 @@ from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
 
-from core.backtesting.reporting.core.context import ReportContext
-from core.backtesting.reporting.core.section import ReportSection
+from core.reporting.core.context import ReportContext
+from core.reporting.core.section import ReportSection
 
 
 class CorePerformanceSection(ReportSection):

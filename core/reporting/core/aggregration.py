@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from core.backtesting.reporting.core.base import BaseAggregator
-from core.backtesting.reporting.core.context import ContextSpec
+from core.reporting.core.base import BaseAggregator
+from core.reporting.core.context import ContextSpec
 
 
 class ContextualAggregator(BaseAggregator):

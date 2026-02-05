@@ -1,5 +1,5 @@
-from core.backtesting.reporting.core.section import ReportSection
-from core.backtesting.reporting.core.context import ReportContext
+from core.reporting.core.section import ReportSection
+from core.reporting.core.context import ReportContext
 
 
 class TradeDistributionSection(ReportSection):

@@ -1,6 +1,6 @@
 import pandas as pd
 
-from core.backtesting.reporting.core.base import BaseMetric
+from core.reporting.core.base import BaseMetric
 
 
 class ExpectancyMetric(BaseMetric):

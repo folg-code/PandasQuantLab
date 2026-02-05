@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import List
 
-from core.backtesting.reporting.core.base import BaseMetric
-from core.backtesting.reporting.core.context import ContextSpec
+from core.reporting.core.base import BaseMetric
+from core.reporting.core.context import ContextSpec
 
 
 @dataclass
