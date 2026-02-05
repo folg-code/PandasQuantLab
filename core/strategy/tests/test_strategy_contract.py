@@ -41,4 +41,3 @@ def test_strategy_domain_execution_with_informatives():
 
     assert "signal_entry" in strategy.df.columns
     assert "signal_exit" in strategy.df.columns
-

@@ -15,7 +15,6 @@ def execute_strategy(
     Used by backtest and live.
     """
 
-    # Informatives
     df = apply_informatives(
         df=df,
         strategy=strategy,
@@ -26,7 +25,6 @@ def execute_strategy(
 
     strategy.df = df
 
-    # Core strategy logic
     strategy.populate_indicators()
     strategy.populate_entry_trend()
     strategy.populate_exit_trend()

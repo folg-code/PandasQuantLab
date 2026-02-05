@@ -6,6 +6,7 @@ from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdow
 from FeatureEngineering.MarketStructure.engine import MarketStructureEngine
 from core.strategy.base import BaseStrategy
 from core.strategy.informatives import informative
+from core.strategy.trade_plan import TradePlan
 
 
 class Samplestrategy(BaseStrategy):
@@ -98,84 +99,30 @@ class Samplestrategy(BaseStrategy):
         # LONG MEAN REVERSION SETUP
         # =====================
 
-        mr_env = True
 
-        setup_mr_long = (
-                mr_env
-                & ((df['close'] < df["bos_bull_level"]) | (df['close'] < df["mss_bull_level"]) )
-        )
-
-        trigger_mr_long = (
-                setup_mr_long
-                & (df["close"] > df["open"])
-        )
 
         # =====================
         # SHORT CONTINUATION SETUP
         # =====================
-        setup_continuation_short = (
-                #df["bias_short_M30"]
-                 (df["trend_regime"] == "trend_down")
-                & df["bos_bear_event"]
-                & df["bos_bear_ft_valid"]
-               # & (df["bos_bear_struct_vol"] == "high")
-        )
 
-        trigger_continuation_short = (
-            setup_continuation_short
-            & (df["close"] < df["open"])
-        )
-
-        # =====================
-        # SHORT MEAN REVERSION SETUP
-        # =====================
-        setup_mr_short = (
-                mr_env
-                & ((df['close'] > df["bos_bull_level"]) | (df['close'] > df["mss_bull_level"]) )
-        )
-
-        trigger_mr_short = (
-                setup_mr_short
-                & (df["close"] < df["open"])
-        )
-
-        # =====================
-        # SIGNALS (PRIORITY)
-        # =====================
-
-        # =====================
-        # SIGNALS (PRIORITY)
-        # =====================
+        setup_mr_long = df["close"] > df["open"]
+        setup_continuation_short = df["close"] < df["open"]
 
         df["signal_entry"] = None
 
-        # --- CONTINUATION FIRST ---
-        df.loc[trigger_continuation_long, "signal_entry"] = pd.Series(
-            [{"direction": "long", "tag": "bos_continuation_long"}]
-            * trigger_continuation_long.sum(),
-            index=df.index[trigger_continuation_long],
+        idx = df.index[setup_mr_long]
+
+        df.loc[idx, "signal_entry"] = pd.Series(
+            [{"direction": "long", "tag": "long"}] * len(idx),
+            index=idx
         )
 
-        df.loc[trigger_continuation_short, "signal_entry"] = pd.Series(
-            [{"direction": "short", "tag": "bos_continuation_short"}]
-            * trigger_continuation_short.sum(),
-            index=df.index[trigger_continuation_short],
+        idx = df.index[setup_continuation_short]
+
+        df.loc[idx, "signal_entry"] = pd.Series(
+            [{"direction": "short", "tag": "short"}] * len(idx),
+            index=idx
         )
-
-        free = df["signal_entry"].isna()
-
-        df.loc[trigger_mr_long & free, "signal_entry"] = pd.Series(
-            [{"direction": "long", "tag": "mean_reversion_long"}]
-            * (trigger_mr_long & free).sum(),
-            index=df.index[trigger_mr_long & free],
-        )
-
-        df.loc[trigger_mr_short & free, "signal_entry"] = pd.Series(
-            [{"direction": "short", "tag": "mean_reversion_short"}]
-            * (trigger_mr_short & free).sum(),
-            index=df.index[trigger_mr_short & free],
-        )
-
 
         df["levels"] = None
 
@@ -190,6 +137,7 @@ class Samplestrategy(BaseStrategy):
             axis=1
         )
 
+        print(df["signal_entry"].notna().sum())
 
         self.df = df
 
@@ -223,6 +171,7 @@ class Samplestrategy(BaseStrategy):
     def populate_exit_trend(self):
         self.df["signal_exit"] = None
         self.df["custom_stop_loss"] = None
+
 
     def calculate_levels(self, signals, close, sl_long, sl_short):
 

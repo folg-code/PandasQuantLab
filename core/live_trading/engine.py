@@ -1,21 +1,23 @@
-import time
+from __future__ import annotations
 
 from datetime import datetime
+import time
 
-from core.live_trading.position_manager import PositionManager
 from core.live_trading.strategy_adapter import LiveStrategyAdapter
 
 
 class LiveEngine:
     """
     Live trading engine.
-    Orchestrates lifecycle and delegates logic.
+    Tick loop:
+    - always run exit logic
+    - on new candle: update strategy and maybe execute entry
     """
 
     def __init__(
         self,
         *,
-        position_manager: PositionManager,
+        position_manager,
         market_data_provider,
         strategy_adapter: LiveStrategyAdapter,
         tick_interval_sec: float = 1.0,
@@ -28,9 +30,8 @@ class LiveEngine:
         self._running = False
         self._last_candle_time = None
 
-    # ==================================================
-    # Lifecycle
-    # ==================================================
+        # keep last candle-derived state for tick-based management
+        self._last_strategy_row = None
 
     def start(self):
         self._running = True
@@ -41,10 +42,6 @@ class LiveEngine:
         self._running = False
         print("🔴 LiveEngine stopped")
 
-    # ==================================================
-    # Main loop
-    # ==================================================
-
     def _run_loop(self):
         last_heartbeat = time.time()
 
@@ -52,9 +49,8 @@ class LiveEngine:
             try:
                 self._tick()
             except Exception as e:
-                print(f"❌ Engine error: {e}")
+                print(f"❌ Engine error: {type(e).__name__}: {e}")
 
-            # heartbeat 30s
             if time.time() - last_heartbeat > 30:
                 print("💓 Engine alive")
                 last_heartbeat = time.time()
@@ -68,27 +64,41 @@ class LiveEngine:
 
         market_state.setdefault("time", datetime.utcnow())
 
-        # --------------------------------------------------
+        # -----------------------------------------
+        # Inject last strategy management signals
+        # -----------------------------------------
+        if self._last_strategy_row is not None:
+            # these keys are optional in your DF
+            se = self._last_strategy_row.get("signal_exit")
+            csl = self._last_strategy_row.get("custom_stop_loss")
+
+            if isinstance(se, dict):
+                market_state["signal_exit"] = se
+            if isinstance(csl, dict):
+                market_state["custom_stop_loss"] = csl
+
+        # -----------------------------------------
         # EXIT LOGIC (tick-based)
-        # --------------------------------------------------
+        # -----------------------------------------
         self.position_manager.on_tick(market_state=market_state)
 
-        # --------------------------------------------------
+        # -----------------------------------------
         # ENTRY LOGIC (candle-based)
-        # --------------------------------------------------
+        # -----------------------------------------
         candle_time = market_state.get("candle_time")
-
         if candle_time is None:
             return
 
-        if getattr(self, "_last_candle_time", None) == candle_time:
+        if self._last_candle_time == candle_time:
             return
 
         self._last_candle_time = candle_time
 
-        plan = self.strategy_adapter.on_new_candle()
-        if plan is not None:
+        result = self.strategy_adapter.on_new_candle()
+        self._last_strategy_row = result.last_row
+
+        if result.plan is not None:
             self.position_manager.on_trade_plan(
-                plan=plan,
+                plan=result.plan,
                 market_state=market_state,
             )

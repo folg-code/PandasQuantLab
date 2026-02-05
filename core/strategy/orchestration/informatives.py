@@ -44,7 +44,6 @@ def apply_informatives(
 
     informative_results: Dict[str, pd.DataFrame] = {}
 
-
     for tf in informatives:
         df_tf = provider.get_informative_df(
             symbol=symbol,
@@ -59,7 +58,6 @@ def apply_informatives(
             )
 
         informative_results[tf] = df_tf
-
 
     for tf, methods in informatives.items():
         df_tf = informative_results[tf]

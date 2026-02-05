@@ -1,5 +1,5 @@
 import traceback
-from typing import  Optional
+from typing import Optional, Any
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
@@ -14,15 +14,16 @@ from core.domain.execution.exit_processor import ExitProcessor
 from core.domain.cost.cost_engine import TradeCostEngine, InstrumentCtx
 from core.backtesting.trade_factory import TradeFactory
 from core.domain.risk.sizing import position_size
+from core.strategy.plan_builder import  PlanBuildContext
 
 
 class Backtester:
     def __init__(self,
-                 slippage: float = 0.0,
+                 strategy,
                  execution_policy: Optional[ExecutionPolicy] = None,
                  cost_engine: Optional[TradeCostEngine] = None
                  ):
-        self.slippage = slippage
+        self.strategy = strategy
         self.execution_policy = execution_policy or ExecutionPolicy()
         self.cost_engine = cost_engine or TradeCostEngine(self.execution_policy)
 
@@ -66,66 +67,70 @@ class Backtester:
     def _backtest_single_symbol(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
         trades = []
 
-        df = df.copy()
-        df["time"] = df["time"].dt.tz_localize(None)
-
-
+        time_arr = df["time"].dt.tz_localize(None).values
         high_arr = df["high"].values
         low_arr = df["low"].values
         close_arr = df["close"].values
-        time_arr = df["time"].values
 
-        signal_arr = df["signal_entry"].values
-        levels_arr = df["levels"].values
+        # instrument ctx do slippage itp.
+        ctx_inst = self._instrument_ctx(symbol)
 
-        ctx = self._instrument_ctx(symbol)
-        point_size = ctx.point_size
-        pip_value = ctx.pip_value
+        # 1) Build vector-friendly plans once (shared logic)
+        ctx = PlanBuildContext(
+            symbol=symbol,
+            strategy_name=type(self.strategy).__name__,
+            strategy_config=self.strategy.strategy_config,
+        )
+        plans = self.strategy.build_trade_plans_backtest(df=df, ctx=ctx, allow_managed_in_backtest=False)
+
+        # 2) Precompute arrays used in the hot loop
+        plan_valid = plans["plan_valid"].values
+        plan_dir = plans["plan_direction"].values
+        plan_tag = plans["plan_entry_tag"].values
+        plan_sl = plans["plan_sl"].values.astype(float)
+        plan_tp1 = plans["plan_tp1"].values.astype(float)
+        plan_tp2 = plans["plan_tp2"].values.astype(float)
+
+        plan_sl_tag = plans["plan_sl_tag"].values.astype(str)
+        plan_tp1_tag = plans["plan_tp1_tag"].values.astype(str)
+        plan_tp2_tag = plans["plan_tp2_tag"].values.astype(str)
 
         n = len(df)
 
         for direction in ("long", "short"):
             dir_flag = 1 if direction == "long" else -1
-            last_exit_by_tag = {}
+            last_exit_by_tag: dict[str, Any] = {}
 
             for entry_pos in range(n):
-                sig = signal_arr[entry_pos]
-                if not isinstance(sig, dict) or sig.get("direction") != direction:
+                if not plan_valid[entry_pos]:
+                    continue
+                if plan_dir[entry_pos] != direction:
                     continue
 
-                entry_tag = sig["tag"]
+                entry_tag = str(plan_tag[entry_pos])
                 entry_time = time_arr[entry_pos]
 
                 last_exit = last_exit_by_tag.get(entry_tag)
                 if last_exit is not None and last_exit > entry_time:
                     continue
 
-                levels = levels_arr[entry_pos]
-                if not isinstance(levels, dict):
-                    continue
+                sl = float(plan_sl[entry_pos])
+                tp1 = float(plan_tp1[entry_pos])
+                tp2 = float(plan_tp2[entry_pos])
 
-                sl = (levels.get("SL") or levels.get(0))["level"]
-                tp1 = (levels.get("TP1") or levels.get(1))["level"]
-                tp2 = (levels.get("TP2") or levels.get(2))["level"]
-
-                level_tags = {
-                    "SL": (levels.get("SL") or levels.get(0))["tag"],
-                    "TP1": (levels.get("TP1") or levels.get(1))["tag"],
-                    "TP2": (levels.get("TP2") or levels.get(2))["tag"],
-                }
+                level_tags = {"SL": plan_sl_tag[entry_pos], "TP1": plan_tp1_tag[entry_pos], "TP2": plan_tp2_tag[entry_pos]}
 
                 entry_price = float(close_arr[entry_pos])
 
-                # legacy behavior: entry slippage on exec price (kept as-is)
-                entry_price += ctx.slippage_abs if direction == "long" else -ctx.slippage_abs
+                entry_price += ctx_inst.slippage_abs if direction == "long" else -ctx_inst.slippage_abs
 
                 size = position_size(
                     entry_price=entry_price,
                     stop_price=sl,
                     max_risk=MAX_RISK_PER_TRADE,
-                    account_size=INITIAL_BALANCE,
-                    point_size=point_size,
-                    pip_value=pip_value,
+                    account_size=INITIAL_BALANCE,   # lub INITIAL_BALANCE
+                    point_size=ctx_inst.point_size,
+                    pip_value=ctx_inst.pip_value,
                 )
 
                 (
@@ -146,7 +151,7 @@ class Backtester:
                     low_arr,
                     close_arr,
                     time_arr,
-                    ctx.slippage_abs,
+                    ctx_inst.slippage_abs,
                 )
 
                 exit_result = ExitProcessor.process(
@@ -162,9 +167,11 @@ class Backtester:
                     tp1=tp1,
                     tp2=tp2,
                     position_size=size,
-                    point_size=point_size,
-                    pip_value=pip_value,
+                    point_size=ctx_inst.point_size,
+                    pip_value=ctx_inst.pip_value,
                 )
+
+
 
                 trade_dict = TradeFactory.create_trade(
                     symbol=symbol,
@@ -176,22 +183,18 @@ class Backtester:
                     sl=sl,
                     tp1=tp1,
                     tp2=tp2,
-                    point_size=point_size,
-                    pip_value=pip_value,
+                    point_size=ctx_inst.point_size,
+                    pip_value=ctx_inst.pip_value,
                     exit_result=exit_result,
                     level_tags=level_tags,
                 )
 
-                self.cost_engine.enrich(trade_dict, df=df, ctx=ctx)
+                self.cost_engine.enrich(trade_dict, df=df, ctx=ctx_inst)
 
                 trades.append(trade_dict)
                 last_exit_by_tag[entry_tag] = exit_time
 
         print(f"✅ Finished backtest for {symbol}, {len(trades)} trades.")
-
-        df = pd.DataFrame(trades)
-
-        print(df.loc[df['financing_usd_total'] > 0])
         return pd.DataFrame(trades)
 
     # -----------------------------

@@ -166,7 +166,7 @@ class BacktestRunner:
         if df_slice.empty:
             raise RuntimeError(f"No signals in window: {label}")
 
-        backtester = Backtester(slippage=self.config.SLIPPAGE)
+        backtester = Backtester(strategy=self.strategy)
         trades = backtester.run_backtest(df_slice)
         trades["window"] = label
         return trades

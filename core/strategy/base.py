@@ -7,25 +7,24 @@ import pandas as pd
 
 from core.backtesting.reporting.config.report_config import ReportConfig
 from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
+from core.strategy.plan_builder import PlanBuildContext, build_trade_plan_from_row, build_plans_frame
 from core.strategy.trade_plan import TradePlan, TradeAction
+
 
 
 class BaseStrategy(ABC):
     """
-    Strategy domain contract.
+    Vector strategy contract.
 
-    Strategy responsibilities:
-    - observe market state
-    - decide WHEN and WHY to trade
-    - produce decisions (TradePlan / TradeAction)
+    Responsibilities:
+    - populate features/indicators on self.df (vectorized)
+    - produce signals in df (e.g. signal_entry / signal_exit / levels)
+    - optionally: map last-row decisions into TradePlan (live) or plan frame (backtest)
 
     Strategy does NOT:
-    - fetch or merge data
-    - manage lifecycle
-    - know about backtest or live execution
+    - fetch/merge data (provider does)
+    - manage lifecycle/execution (runner/engine does)
     """
-
-
 
     def __init__(
         self,
@@ -54,27 +53,54 @@ class BaseStrategy(ABC):
         return sorted(tfs)
 
     # ==================================================
-    # Strategy hooks
+    # Strategy hooks (vector)
     # ==================================================
 
     @abstractmethod
     def populate_indicators(self) -> None:
+        """Compute indicators/features into self.df."""
         raise NotImplementedError
 
     @abstractmethod
     def populate_entry_trend(self) -> None:
+        """Write entry signals into self.df (e.g. signal_entry / levels)."""
         raise NotImplementedError
 
     @abstractmethod
     def populate_exit_trend(self) -> None:
+        """Write exit/management signals into self.df (e.g. signal_exit / custom_stop_loss)."""
         raise NotImplementedError
 
     # ==================================================
-    # Decision layer
+    # Decision layer (OPTIONAL by default)
     # ==================================================
 
-    def build_trade_plan(self, *, row: pd.Series) -> Optional[TradePlan]:
-        return None
+    def build_trade_plan_live(self, *, row: pd.Series, ctx: PlanBuildContext) -> TradePlan | None:
+        """
+        Default live plan builder from last row.
+        Strategies do NOT need to override this.
+        """
+        return build_trade_plan_from_row(row=row, ctx=ctx)
+
+    def build_trade_plans_backtest(
+        self,
+        *,
+        df: pd.DataFrame,
+        ctx: PlanBuildContext,
+        allow_managed_in_backtest: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Default backtest plan builder from full DF.
+        Strategies do NOT need to override this.
+        """
+        return build_plans_frame(df=df, ctx=ctx, allow_managed_in_backtest=allow_managed_in_backtest)
+
+    def build_trade_plans(self, *, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Backtest hook (vector-friendly).
+        Default: empty -> runner/backtester may use shared plan_builder fallback.
+        """
+        return pd.DataFrame(index=df.index)
 
     def manage_trade(
         self,
@@ -82,13 +108,17 @@ class BaseStrategy(ABC):
         trade_state: Dict[str, Any],
         market_state: Dict[str, Any],
     ) -> Optional[TradeAction]:
+        """
+        Optional live management hook for active trades.
+        Default: no-op.
+        """
         return None
 
     # ==================================================
     # Optional hooks (called by orchestrators)
     # ==================================================
 
-    def validate(self):
+    def validate(self) -> None:
         if "time" not in self.df.columns:
             raise ValueError("Strategy DF must contain 'time' column")
 
@@ -110,3 +140,17 @@ class BaseStrategy(ABC):
 
     def bool_series(self):
         return []
+
+
+# ==================================================
+# Optional stricter base for live trading
+# ==================================================
+
+class BasePlanStrategy(BaseStrategy, ABC):
+    """
+    Use this base if the strategy MUST provide TradePlan (e.g. live trading).
+    """
+
+    @abstractmethod
+    def build_trade_plan(self, *, row: pd.Series) -> TradePlan | None:
+        ...
