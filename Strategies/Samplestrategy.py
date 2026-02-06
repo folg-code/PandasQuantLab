@@ -29,21 +29,9 @@ class Samplestrategy(BaseStrategy):
         # --- minimum techniczne
         df["atr"] = ta.ATR(df, 14)
 
-        # --- market structure HTF
-        df = MarketStructureEngine.apply(
-            df,
-            features=[
-                "pivots",
-                "price_action",
-                "follow_through",
-                "structural_vol",
-                "trend_regime",
-            ],
-        )
 
-        # --- bias flags (czytelne na GitHubie)
-        df["bias_long"] = df["trend_regime"] == "trend_up"
-        df["bias_short"] = df["trend_regime"] == "trend_down"
+
+
 
         return df
 
@@ -54,17 +42,7 @@ class Samplestrategy(BaseStrategy):
         # --- base indicators
         df["atr"] = ta.ATR(df, 14)
 
-        # --- market structure
-        df = MarketStructureEngine.apply(
-            df,
-            features=[
-                "pivots",
-                "price_action",
-                "follow_through",
-                "structural_vol",
-                "trend_regime",
-            ],
-        )
+
 
         df['low_15'] = df['low'].rolling(15).min()
         df['high_15'] = df['high'].rolling(15).max()
@@ -135,8 +113,6 @@ class Samplestrategy(BaseStrategy):
             ),
             axis=1
         )
-
-        print(df["signal_entry"].notna().sum())
 
         self.df = df
 

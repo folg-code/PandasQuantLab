@@ -8,7 +8,7 @@ class ResultStore:
     Single source of truth for run paths.
     """
 
-    def __init__(self, base_path: str | Path = "results_logic/backtests"):
+    def __init__(self, base_path: str | Path = "results/backtests"):
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
 

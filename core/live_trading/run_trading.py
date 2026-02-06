@@ -93,7 +93,6 @@ class LiveTradingRunner:
 
         provider = MT5Client(bars_per_tf=bars_per_tf)
 
-        print(f"📡 Informative TFs: {bars_per_tf}")
         return provider
 
     # ==================================================

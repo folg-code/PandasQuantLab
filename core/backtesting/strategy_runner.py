@@ -3,6 +3,8 @@ from typing import Any
 
 import pandas as pd
 
+from config.logger_config import RunLogger, NullLogger
+from core.strategy.orchestration.informatives import apply_informatives
 from core.strategy.orchestration.strategy_execution import execute_strategy
 from core.strategy.plan_builder import PlanBuildContext
 from core.utils.timeframe import tf_to_minutes
@@ -24,13 +26,15 @@ class StrategyRunResult:
 
     trade_plans: pd.DataFrame
     report_spec: Any
+    timing: dict[str, float]
 
-def run_strategy_single(
+def strategy_orchestration(
     *,
     symbol: str,
     data_by_tf: dict[str, pd.DataFrame],
     strategy_cls,
     startup_candle_count: int,
+    logger: RunLogger | None = None,
 ):
     """
     Run single strategy instance for one symbol.
@@ -41,34 +45,57 @@ def run_strategy_single(
     Multiprocessing-safe.
     """
 
+    logger = logger or NullLogger()
+
     # ==================================================
     # 1️⃣ BASE TIMEFRAME
     # ==================================================
 
-    base_tf = min(data_by_tf.keys(), key=tf_to_minutes)
-    df_base = data_by_tf[base_tf].copy()
+    with logger.section("base_tf"):
+        base_tf = min(data_by_tf.keys(), key=tf_to_minutes)
+        df_base = data_by_tf[base_tf].copy()
 
     # ==================================================
     # 2️⃣ STRATEGY INIT
     # ==================================================
 
-    strategy = strategy_cls(
-        df=df_base,
-        symbol=symbol,
-        startup_candle_count=startup_candle_count,
-    )
-    strategy.validate()
+    with logger.section("strategy_init"):
+        strategy = strategy_cls(
+            df=df_base,
+            symbol=symbol,
+            startup_candle_count=startup_candle_count,
+        )
+        strategy.validate()
 
     # ==================================================
     # 3️⃣ EXECUTION PIPELINE
     # ==================================================
 
-    df_context = execute_strategy(
-        strategy=strategy,
-        df=df_base,
-        data_by_tf=data_by_tf,
-    ).copy()
+    with logger.section("execute_strategy"):
+        df_context = apply_informatives(
+            df=df_base,
+            strategy=strategy,
+            data_by_tf=data_by_tf,
+        )
 
+        strategy.df = df_context
+
+        with logger.section("execute.indicators"):
+            strategy.populate_indicators()
+
+        with logger.section("execute.entry"):
+            strategy.populate_entry_trend()
+
+        with logger.section("signal_stats"):
+            entry_count = strategy.df["signal_entry"].notna().sum()
+
+            logger.log(
+                f"entry signals = {entry_count} ")
+
+        with logger.section("execute.exit"):
+            strategy.populate_exit_trend()
+
+    df_context = strategy.df
     # ==================================================
     # 4️⃣ BUILD df_signals (EXECUTION CONTRACT)
     # ==================================================
@@ -101,17 +128,19 @@ def run_strategy_single(
     # BUILD TRADE PLANS (STRATEGY RESPONSIBILITY)
     # ==================================================
 
-    ctx = PlanBuildContext(
-        symbol=symbol,
-        strategy_name=strategy.get_strategy_name(),
-        strategy_config=strategy.strategy_config,
-    )
+    with logger.section("build_context_plans"):
+        ctx = PlanBuildContext(
+            symbol=symbol,
+            strategy_name=strategy.get_strategy_name(),
+            strategy_config=strategy.strategy_config,
+        )
 
-    trade_plans = strategy.build_trade_plans_backtest(
-        df=df_signals,
-        ctx=ctx,
-        allow_managed_in_backtest=False,
-    )
+    with logger.section("build_trade_plans"):
+        trade_plans = strategy.build_trade_plans_backtest(
+            df=df_signals,
+            ctx=ctx,
+            allow_managed_in_backtest=False,
+        )
 
 
     return StrategyRunResult(
@@ -122,4 +151,5 @@ def run_strategy_single(
         df_context=df_context,
         trade_plans=trade_plans,
         report_spec=strategy.build_report_spec(),
+        timing=logger.get_timings(),
     )

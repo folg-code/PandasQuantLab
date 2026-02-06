@@ -8,7 +8,7 @@ class ReportPersistence:
     Persist report outputs INSIDE a backtest run directory.
 
     Contract:
-    - base_path == results_logic/backtests/{run_id}/report
+    - base_path == results/backtests/{run_id}/report
     - does NOT create run_id
     - does NOT timestamp directories
     - does NOT duplicate raw trades

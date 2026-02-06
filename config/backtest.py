@@ -1,5 +1,8 @@
 import logging
 from enum import Enum
+from pathlib import Path
+
+from config.logger_config import LoggerConfig
 
 logging.basicConfig(level=logging.INFO)
 
@@ -41,7 +44,7 @@ STARTUP_CANDLE_COUNT = 600
 
 SYMBOLS = [
     "XAUUSD",
-    #"EURUSD"
+    "EURUSD"
 ]
 
 TIMEFRAME = "M1"
@@ -102,7 +105,7 @@ class StdoutMode(str, Enum):
 REPORT_STDOUT_MODE = StdoutMode.OFF
 
 # Used only if FILE or BOTH
-REPORT_STDOUT_FILE = "results_logic/stdout_report.txt"
+REPORT_STDOUT_FILE = "results/stdout_report.txt"
 
 # ---- Dashboard / persistence ----
 GENERATE_DASHBOARD = True
@@ -117,3 +120,21 @@ REPORT_FAIL_ON_EMPTY = True
 
 PLOT_ONLY = False          # Skip backtest, just plots
 SAVE_TRADES_CSV = False   # Legacy / debug only
+
+from config.logger_config import LoggerConfig
+
+LOGGER_CONFIG = LoggerConfig(
+    stdout=True,
+    file=True,
+    timing=True,
+    profiling=False,
+    log_dir=Path("results/logs"),
+)
+
+PROFILING = True
+
+USE_MULTIPROCESSING_STRATEGIES = False
+USE_MULTIPROCESSING_BACKTESTS = True
+
+MAX_WORKERS_STRATEGIES = None     # None = os.cpu_count()
+MAX_WORKERS_BACKTESTS = None

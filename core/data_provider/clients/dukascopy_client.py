@@ -74,10 +74,6 @@ class DukascopyClient:
     ) -> Path:
         workdir = Path(tempfile.mkdtemp())
 
-        print(
-            f"📥 Dukascopy | fetching {symbol} {timeframe} "
-            f"{start.strftime('%Y-%m-%d')} → {end.strftime('%Y-%m-%d')}"
-        )
 
         cmd = [
             self.npx_cmd,
@@ -124,11 +120,6 @@ class DukascopyClient:
                 f"STDERR:\n{proc.stderr}"
             )
 
-        print(
-            f"✅ Dukascopy | OK {symbol} {timeframe} "
-            f"size={csv_path.stat().st_size / 1024:.1f} KB "
-            f"file={csv_path.name}"
-        )
 
         return csv_path
 

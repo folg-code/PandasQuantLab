@@ -1,7 +1,9 @@
+
 import pandas as pd
+
+from config.logger_config import RunLogger, LoggerConfig
 from core.backtesting.engine.backtester import Backtester
-from core.backtesting.strategy_runner import run_strategy_single
-from core.data_provider import DefaultOhlcvDataProvider
+from core.backtesting.strategy_runner import  strategy_orchestration
 
 
 def run_backtest_worker(
@@ -29,9 +31,17 @@ def run_strategy_worker(
     strategy_cls,
     startup_candle_count: int,
 ):
-    return run_strategy_single(
+    logger = RunLogger(
+        name=f"StrategyWorker[{symbol}]",
+        cfg=LoggerConfig(stdout=False, file=False, timing=True),
+        prefix=f"📐 STRATEGY[{symbol}] |",
+    )
+
+    result = strategy_orchestration(
         symbol=symbol,
         data_by_tf=data_by_tf,
         strategy_cls=strategy_cls,
         startup_candle_count=startup_candle_count,
+        logger=logger,
     )
+    return result
