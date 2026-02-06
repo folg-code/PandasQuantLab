@@ -1,9 +1,10 @@
 import pandas as pd
 
-from config.logger_config import NullLogger
 
 from core.data_provider import CsvMarketDataCache
 from core.data_provider.providers.default_provider import BacktestStrategyDataProvider
+from core.logging.null_logger import NullLogger
+
 
 def test_no_cache_fetches_and_saves(tmp_path, utc):
 
