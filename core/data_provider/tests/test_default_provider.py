@@ -1,5 +1,7 @@
 import pandas as pd
 
+from config.logger_config import NullLogger
+
 from core.data_provider import CsvMarketDataCache
 from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
 
@@ -22,6 +24,7 @@ def test_no_cache_fetches_and_saves(tmp_path, utc):
         cache=cache,
         backtest_start=start,
         backtest_end=end,
+        logger=NullLogger(),
     )
 
     out = p.get_ohlcv(symbol="EURUSD", timeframe="M1", start=start, end=end)
@@ -55,7 +58,8 @@ def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
     from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
     p = DefaultOhlcvDataProvider(
         backend=backend, cache=cache,
-        backtest_start=start, backtest_end=end
+        backtest_start=start, backtest_end=end,
+        logger=NullLogger(),
     )
 
     out = p.get_ohlcv(symbol="EURUSD", timeframe="M1", start=start, end=end)
@@ -88,7 +92,8 @@ def test_missing_after_fetches_post_and_appends(tmp_path, utc):
     from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
     p = DefaultOhlcvDataProvider(
         backend=backend, cache=cache,
-        backtest_start=start, backtest_end=end
+        backtest_start=start, backtest_end=end,
+        logger=NullLogger(),
     )
 
     out = p.get_ohlcv(symbol="EURUSD", timeframe="M1", start=start, end=end)

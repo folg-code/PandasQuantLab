@@ -27,10 +27,9 @@ def test_strategy_domain_execution_with_informatives():
     df_with_htf = apply_informatives(
         df=df,
         strategy=strategy,
-        provider=DummyProvider(),
-        symbol="XAUUSD",
-        startup_candle_count=10,
+        data_by_tf={"M30": df},
     )
+
 
     strategy.df = df_with_htf
 

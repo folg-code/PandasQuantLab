@@ -28,7 +28,7 @@ def test_trade_cost_engine_does_not_mutate_prices():
         slippage_abs=0.0,
     )
 
-    engine.enrich(trade, df=None, ctx=ctx)
+    engine.apply(trade, df=None, ctx=ctx)
 
     assert trade["entry_price"] == 1.0000
     assert trade["exit_price"] == 1.0100

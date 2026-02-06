@@ -25,9 +25,8 @@ def test_execute_strategy_pipeline():
     out = execute_strategy(
         strategy=strat,
         df=df,
-        provider=DummyProvider(),
-        symbol="XAUUSD",
-        startup_candle_count=10,
+        data_by_tf={"M30": df},
+
     )
 
     assert "signal_entry" in out.columns
