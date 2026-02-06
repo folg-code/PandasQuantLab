@@ -31,12 +31,6 @@ class LiveTradingRunner:
 
         mt5.symbol_select(self.cfg.SYMBOLS, True)
 
-        info = mt5.symbol_info("BTCUSD")
-        print(
-            "trade_mode:", info.trade_mode,
-            "session:", info.session_deals,
-            "trade_allowed:", info.trade_mode != mt5.SYMBOL_TRADE_MODE_DISABLED
-        )
 
         StrategyClass = load_strategy_class(self.cfg.STRATEGY_CLASS)
 
