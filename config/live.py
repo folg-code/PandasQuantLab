@@ -16,7 +16,7 @@ ACCOUNT_INFO = {
     "SERVER": "SERVER",
 }
 
-DRY_RUN = False
+DRY_RUN = True
 
 TICK_INTERVAL_SEC = 1.0
 
@@ -26,7 +26,7 @@ TICK_INTERVAL_SEC = 1.0
 
 STRATEGY_CLASS = "Samplestrategyreport"
 
-SYMBOLS = "EURUSD"
+SYMBOLS = "BTCUSD"
 
 TIMEFRAME = "M1"
 

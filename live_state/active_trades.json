@@ -1,1 +1,18 @@
-{}
+{
+  "MOCK_BTCUSD": {
+    "trade_id": "MOCK_BTCUSD",
+    "symbol": "BTCUSD",
+    "direction": "short",
+    "entry_price": 68126.72,
+    "volume": 0.0,
+    "sl": 68657.95275175916,
+    "tp1": 67595.48724824084,
+    "tp2": 67064.25449648168,
+    "tp1_executed": false,
+    "entry_time": "2026-02-06T17:12:00+00:00",
+    "entry_tag": "short_mask",
+    "strategy": "Samplestrategyreport",
+    "strategy_config": {},
+    "ticket": "MOCK_BTCUSD"
+  }
+}
