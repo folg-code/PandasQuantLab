@@ -130,7 +130,7 @@ flowchart LR
     E1[MT5Adapter<br/>dry_run flag]
     E2[TradeRepo]
     E3[PositionManager<br/>repo + adapter]
-    E4[LiveStrategyAdapter<br/>wrap strategy]
+    E4[LiveStrategyRunner<br/>wrap strategy]
     E5[market_data_provider<br/>last closed candle]
     E6[LiveEngine<br/>tick_interval_sec]
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 import time
 
-from core.live_trading.strategy_adapter import LiveStrategyAdapter
+from core.live_trading.strategy_adapter import LiveStrategyRunner
 
 
 class LiveEngine:
@@ -19,7 +19,7 @@ class LiveEngine:
         *,
         position_manager,
         market_data_provider,
-        strategy_adapter: LiveStrategyAdapter,
+        strategy_adapter: LiveStrategyRunner,
         tick_interval_sec: float = 1.0,
     ):
         self.position_manager = position_manager

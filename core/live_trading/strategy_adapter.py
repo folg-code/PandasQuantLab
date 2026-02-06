@@ -17,7 +17,7 @@ class StrategyCandleResult:
     plan: TradePlan | None
 
 
-class LiveStrategyAdapter:
+class LiveStrategyRunner:
     """
     Live orchestration adapter.
 
