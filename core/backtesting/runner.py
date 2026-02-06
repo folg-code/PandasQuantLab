@@ -2,7 +2,6 @@ import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from time import perf_counter
 from uuid import uuid4
 
 import pandas as pd
@@ -15,7 +14,7 @@ from core.backtesting.engine.worker import run_backtest_worker, run_strategy_wor
 from core.backtesting.results_logic.metadata import BacktestMetadata
 from core.backtesting.results_logic.result import BacktestResult
 from core.backtesting.results_logic.store import ResultStore
-from core.backtesting.strategy_runner import  strategy_orchestration
+from core.backtesting.strategy_runner import strategy_orchestration
 from core.data_provider import DefaultOhlcvDataProvider, CsvMarketDataCache
 from core.live_trading.strategy_loader import load_strategy_class
 from core.reporting.runner import ReportRunner
@@ -39,17 +38,37 @@ class BacktestRunner:
 
         self.provider = None
 
-        self.strategy = None        # reference strategy
-        self.strategies = []        # all instantiated strategies
+        self.strategy = None
+        self.strategies = []
 
         self.signals_df: pd.DataFrame | None = None
         self.trades_df: pd.DataFrame | None = None
 
-        self.log_run = RunLogger("Run", self.cfg.LOGGER_CONFIG, prefix="🚀 RUN |")
-        self.log_data = RunLogger("Data", self.cfg.LOGGER_CONFIG, prefix="📈 DATA |")
-        self.log_strategy = RunLogger("Strategy", self.cfg.LOGGER_CONFIG, prefix="📐 STRATEGY |")
-        self.log_backtest = RunLogger("Backtest", self.cfg.LOGGER_CONFIG, prefix="📊 BACKTEST |")
-        self.log_report = RunLogger("Report", self.cfg.LOGGER_CONFIG, prefix="📄 REPORT |")
+        self.log_run = RunLogger(
+            "Run",
+            self.cfg.LOGGER_CONFIG,
+            prefix="🚀 RUN |"
+        )
+        self.log_data = RunLogger(
+            "Data",
+            self.cfg.LOGGER_CONFIG,
+            prefix="📈 DATA |"
+        )
+        self.log_strategy = RunLogger(
+            "Strategy",
+            self.cfg.LOGGER_CONFIG,
+            prefix="📐 STRATEGY |"
+        )
+        self.log_backtest = RunLogger(
+            "Backtest",
+            self.cfg.LOGGER_CONFIG,
+            prefix="📊 BACKTEST |"
+        )
+        self.log_report = RunLogger(
+            "Report",
+            self.cfg.LOGGER_CONFIG,
+            prefix="📄 REPORT |"
+        )
 
     # ==================================================
     # 1️⃣ DATA LOADING

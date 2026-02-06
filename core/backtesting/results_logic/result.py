@@ -28,14 +28,11 @@ class BacktestResult:
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
 
-        # --- metadata ---
         with open(path / "metadata.json", "w", encoding="utf-8") as f:
             json.dump(self.metadata.to_dict(), f, indent=2)
 
-        # --- raw trades ---
         self.trades.to_parquet(path / "trades.parquet", index=False)
 
-        # --- analytics (optional) ---
         if self.analytics is not None:
             self.analytics.to_parquet(path / "analytics.parquet", index=False)
 

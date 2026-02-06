@@ -51,7 +51,6 @@ def simulate_exit_numba(
             sl = entry_price
 
         if direction == 1:  # LONG
-            # TP1 (no slippage, partial logic)
             if (not tp1_executed) and high >= tp1_level:
                 tp1_executed = True
                 tp1_price = tp1_level
@@ -66,20 +65,17 @@ def simulate_exit_numba(
                 exit_price = sl - slippage_abs
                 return exit_price, t, exit_code, tp1_executed, tp1_price, tp1_time
 
-            # TP2 HIT (NO slippage for now)
             if high >= tp2_level:
                 exit_code = EXIT_TP2
                 exit_price = tp2_level
                 return exit_price, t, exit_code, tp1_executed, tp1_price, tp1_time
 
-        else:  # SHORT
-            # TP1
+        else:
             if (not tp1_executed) and low <= tp1_level:
                 tp1_executed = True
                 tp1_price = tp1_level
                 tp1_time = t
 
-            # SL HIT
             if high >= sl:
                 if tp1_executed:
                     exit_code = EXIT_TP1_BE
@@ -88,7 +84,6 @@ def simulate_exit_numba(
                 exit_price = sl + slippage_abs
                 return exit_price, t, exit_code, tp1_executed, tp1_price, tp1_time
 
-            # TP2 HIT
             if low <= tp2_level:
                 exit_code = EXIT_TP2
                 exit_price = tp2_level

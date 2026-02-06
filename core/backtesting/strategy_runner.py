@@ -5,10 +5,8 @@ import pandas as pd
 
 from config.logger_config import RunLogger, NullLogger
 from core.strategy.orchestration.informatives import apply_informatives
-from core.strategy.orchestration.strategy_execution import execute_strategy
 from core.strategy.plan_builder import PlanBuildContext
 from core.utils.timeframe import tf_to_minutes
-
 
 
 @dataclass(frozen=True)
@@ -21,12 +19,13 @@ class StrategyRunResult:
     strategy_id: str
     strategy_name: str
 
-    df_signals: pd.DataFrame     # execution contract
+    df_signals: pd.DataFrame
     df_context: pd.DataFrame
 
     trade_plans: pd.DataFrame
     report_spec: Any
     timing: dict[str, float]
+
 
 def strategy_orchestration(
     *,
@@ -141,7 +140,6 @@ def strategy_orchestration(
             ctx=ctx,
             allow_managed_in_backtest=False,
         )
-
 
     return StrategyRunResult(
         symbol=symbol,

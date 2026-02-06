@@ -8,24 +8,19 @@ class BacktestMetadata:
     run_id: str
     created_at: str
 
-    # experiment scope
-    backtest_mode: str                 # single / split
+    backtest_mode: str
     windows: dict[str, tuple[str, str]] | None
 
-    # strategy
-    strategies: list[str]              # strategy_id list
-    strategy_names: dict[str, str]     # id -> name
+    strategies: list[str]
+    strategy_names: dict[str, str]
 
-    # symbols
     symbols: list[str]
     timeframe: str
 
-    # execution / capital
     initial_balance: float
     slippage: float
     max_risk_per_trade: float
 
-    # misc
     notes: str | None = None
 
     @staticmethod

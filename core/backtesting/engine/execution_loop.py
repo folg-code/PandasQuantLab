@@ -7,7 +7,6 @@ from core.backtesting.trade_factory import TradeFactory
 from core.domain.cost.instrument_ctx import InstrumentCtx
 from core.domain.execution.exit_processor import ExitProcessor
 from core.domain.risk.sizing import position_size
-from core.strategy.plan_builder import PlanBuildContext
 
 
 def run_execution_loop(

@@ -3,7 +3,7 @@ import pandas as pd
 
 from config.logger_config import RunLogger, LoggerConfig
 from core.backtesting.engine.backtester import Backtester
-from core.backtesting.strategy_runner import  strategy_orchestration
+from core.backtesting.strategy_runner import strategy_orchestration
 
 
 def run_backtest_worker(

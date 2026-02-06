@@ -258,7 +258,6 @@ class TradePlotter:
             else:
                 color, symbol, key = "gray", "x", "manual_exit"
 
-            # TP1 -> EXIT  OR  ENTRY -> EXIT
             if has_tp1:
                 connect(
                     t["tp1_time"], t["tp1_price"],
@@ -290,7 +289,6 @@ class TradePlotter:
                 continue
 
             for zone in zones:
-                # OBSŁUGA OBU FORMATÓW
                 if len(zone) == 2:
                     zone_name, zdf = zone
                     fillcolor = default_color
@@ -371,7 +369,6 @@ class TradePlotter:
                 row=2,
                 col=1,
             )
-
 
     def _layout(self):
         self.fig.update_layout(
