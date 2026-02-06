@@ -6,9 +6,10 @@ from core.data_provider.clients.mt5_client import (
     MT5Client,
 )
 from core.live_trading.engine import LiveEngine
+from core.live_trading.execution.mt5_adapter import MT5Adapter
+from core.live_trading.execution.position_manager import PositionManager
 from core.live_trading.strategy_adapter import LiveStrategyAdapter
-from core.live_trading.execution import PositionManager
-from core.live_trading.execution import MT5Adapter
+
 from core.live_trading.trade_repo import TradeRepo
 from core.live_trading.strategy_loader import  load_strategy_class
 from core.utils.lookback import LOOKBACK_CONFIG, MIN_HTF_BARS
