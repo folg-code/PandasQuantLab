@@ -12,23 +12,33 @@ from core.strategy.trade_plan import TradePlan
 from core.utils.timeframe import tf_to_minutes
 
 
-@dataclass(frozen=True)
+
+
 class StrategyCandleResult:
-    df_plot: pd.DataFrame
-    last_row: pd.Series
-    plan: TradePlan | None
+    def __init__(self, *, last_row: pd.Series, plan):
+        self.last_row = last_row
+        self.plan = plan
 
 
 class LiveStrategyRunner:
+    """
+    Runs strategy on each new candle.
+    """
 
-    def __init__(self, *, strategy, provider, symbol, startup_candle_count):
+    def __init__(
+        self,
+        *,
+        strategy,
+        data_provider,
+        symbol: str,
+    ):
         self.strategy = strategy
-        self.provider = provider
+        self.data_provider = data_provider
         self.symbol = symbol
-        self.startup_candle_count = startup_candle_count
+        self._last_df: Optional[pd.DataFrame] = None
 
     def run(self) -> StrategyCandleResult:
-        data_by_tf = self.provider.fetch(self.symbol)
+        data_by_tf = self.data_provider.fetch(self.symbol)
 
         base_tf = min(data_by_tf.keys(), key=tf_to_minutes)
         df_base = data_by_tf[base_tf]
@@ -46,11 +56,20 @@ class LiveStrategyRunner:
 
         last_row = df_context.iloc[-1]
 
-        ctx = PlanBuildContext(...)
-        plan = self.strategy.build_trade_plan_live(last_row, ctx)
+        ctx = PlanBuildContext(
+            symbol=self.symbol,
+            strategy_name=self.strategy.get_strategy_name(),
+            strategy_config=self.strategy.strategy_config,
+        )
+
+        plan = self.strategy.build_trade_plan_live(
+            row=last_row,
+            ctx=ctx,
+        )
+
+        self._last_df = df_context
 
         return StrategyCandleResult(
-            df_plot=df_context,
             last_row=last_row,
             plan=plan,
         )

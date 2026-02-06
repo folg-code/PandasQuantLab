@@ -24,7 +24,7 @@ TICK_INTERVAL_SEC = 1.0
 # STRATEGY
 # ==================================================
 
-STRATEGY_CLASS = "Samplestrategy"
+STRATEGY_CLASS = "Samplestrategyreport"
 
 SYMBOLS = "EURUSD"
 
