@@ -7,9 +7,7 @@ def execute_strategy(*, strategy, df, **kwargs):
         raise TypeError(
             f"execute_strategy does not accept extra args: {list(kwargs)}"
         )
-    """
-    Shared strategy execution pipeline.
-    Used by backtest and live.
+
     
     df = apply_informatives(
         df=df,
@@ -24,5 +22,5 @@ def execute_strategy(*, strategy, df, **kwargs):
     strategy.populate_exit_trend()
 
     return strategy.df
-    """
+
 

@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Optional
+from typing import  Optional
 
 import pandas as pd
 
 from core.strategy.orchestration.informatives import apply_informatives
-from core.strategy.orchestration.strategy_execution import execute_strategy
 from core.strategy.plan_builder import PlanBuildContext
-from core.strategy.trade_plan import TradePlan
 from core.utils.timeframe import tf_to_minutes
 
 

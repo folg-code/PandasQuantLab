@@ -25,16 +25,19 @@ def test_no_cache_fetches_and_saves(tmp_path, utc):
         cache=cache,
         backtest_start=start,
         backtest_end=end,
+        required_timeframes=["M1"],
+        startup_candle_count=0,
         logger=NullLogger(),
     )
 
-    out = p.get_ohlcv(symbol="EURUSD", timeframe="M1", start=start, end=end)
+    out = p.fetch(symbol="EURUSD")
+    df = out["M1"]
 
     # assert
     assert len(backend.calls) == 1
-    assert out["time"].is_monotonic_increasing
-    assert out["time"].dt.tz is not None
-    assert out["close"].iloc[-1] == 999
+    assert df["time"].is_monotonic_increasing
+    assert df["time"].dt.tz is not None
+    assert df["close"].iloc[-1] == 999
 
 
 def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
@@ -50,7 +53,7 @@ def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
     end   = utc("2022-01-01 00:10:00")
 
     from core.data_provider.tests.conftest import FakeBackend, make_ohlcv
-    df_pre = make_ohlcv("2022-01-01 00:00:00", periods=5, freq="1min")  # 00:00..00:04
+    df_pre = make_ohlcv("2022-01-01 00:00:00", periods=5, freq="1min")
 
     backend = FakeBackend({
         ("EURUSD", "M1", utc("2022-01-01 00:00:00"), utc("2022-01-01 00:05:00")): df_pre
@@ -58,16 +61,21 @@ def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
 
     from core.data_provider.providers.default_provider import BacktestStrategyDataProvider
     p = BacktestStrategyDataProvider(
-        backend=backend, cache=cache,
-        backtest_start=start, backtest_end=end,
+        backend=backend,
+        cache=cache,
+        backtest_start=start,
+        backtest_end=end,
+        required_timeframes=["M1"],
+        startup_candle_count=0,
         logger=NullLogger(),
     )
 
-    out = p.get_ohlcv(symbol="EURUSD", timeframe="M1", start=start, end=end)
+    out = p.fetch(symbol="EURUSD")
+    df = out["M1"]
 
     assert backend.calls == [("EURUSD","M1", utc("2022-01-01 00:00:00"), utc("2022-01-01 00:05:00"))]
-    assert out["time"].min() == utc("2022-01-01 00:00:00")
-    assert out["time"].max() == utc("2022-01-01 00:10:00")
+    assert df["time"].min() == utc("2022-01-01 00:00:00")
+    assert df["time"].max() == utc("2022-01-01 00:10:00")
 
 
 def test_missing_after_fetches_post_and_appends(tmp_path, utc):
@@ -92,12 +100,17 @@ def test_missing_after_fetches_post_and_appends(tmp_path, utc):
 
     from core.data_provider.providers.default_provider import BacktestStrategyDataProvider
     p = BacktestStrategyDataProvider(
-        backend=backend, cache=cache,
-        backtest_start=start, backtest_end=end,
+        backend=backend,
+        cache=cache,
+        backtest_start=start,
+        backtest_end=end,
+        required_timeframes=["M1"],
+        startup_candle_count=0,
         logger=NullLogger(),
     )
 
-    out = p.get_ohlcv(symbol="EURUSD", timeframe="M1", start=start, end=end)
+    out = p.fetch(symbol="EURUSD")
+    df = out["M1"]
 
     assert backend.calls == [("EURUSD","M1", utc("2022-01-01 00:05:00"), utc("2022-01-01 00:10:00"))]
-    assert out["time"].max() == utc("2022-01-01 00:10:00")
+    assert df["time"].max() == utc("2022-01-01 00:10:00")
