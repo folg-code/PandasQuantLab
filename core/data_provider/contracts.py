@@ -28,3 +28,19 @@ class StrategyDataProvider(Protocol):
     """
     def fetch(self, symbol: str) -> dict[str, pd.DataFrame]:
         ...
+
+
+class LiveMarketDataClient(ABC):
+    """
+    Low-level live market data client.
+    """
+
+    @abstractmethod
+    def get_ohlcv(
+        self,
+        *,
+        symbol: str,
+        timeframe: str,
+        bars: int,
+    ) -> pd.DataFrame:
+        ...
