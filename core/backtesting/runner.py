@@ -15,7 +15,7 @@ from core.backtesting.results_logic.metadata import BacktestMetadata
 from core.backtesting.results_logic.result import BacktestResult
 from core.backtesting.results_logic.store import ResultStore
 from core.backtesting.strategy_runner import strategy_orchestration
-from core.data_provider import DefaultOhlcvDataProvider, CsvMarketDataCache
+from core.data_provider import BacktestStrategyDataProvider, CsvMarketDataCache
 from core.live_trading.strategy_loader import load_strategy_class
 from core.reporting.runner import ReportRunner
 from core.reporting.summary_runner import SummaryReportRunner
@@ -87,31 +87,26 @@ class BacktestRunner:
         start = pd.Timestamp(self.cfg.TIMERANGE["start"], tz="UTC")
         end = pd.Timestamp(self.cfg.TIMERANGE["end"], tz="UTC")
 
-        self.provider = DefaultOhlcvDataProvider(
+        self.provider = BacktestStrategyDataProvider(
             backend=backend,
             cache=CsvMarketDataCache(self.cfg.MARKET_DATA_PATH),
             backtest_start=start,
             backtest_end=end,
+            required_timeframes=all_tfs,
+            startup_candle_count=self.cfg.STARTUP_CANDLE_COUNT,
             logger=self.log_data,
         )
 
-        all_data = {}
+        all_data: dict[str, dict[str, pd.DataFrame]] = {}
 
         with self.log_data.time("load_all"):
             for symbol in self.cfg.SYMBOLS:
-                per_symbol = {}
-                for tf in all_tfs:
-                    per_symbol[tf] = self.provider.get_ohlcv(
-                        symbol=symbol,
-                        timeframe=tf,
-                        start=start,
-                        end=end,
-                    )
-                all_data[symbol] = per_symbol
+                all_data[symbol] = self.provider.fetch(symbol)
 
         self.log_data.log(
             f"summary | symbols={len(all_data)} timeframes={len(all_tfs)}"
         )
+
         return all_data
     # ==================================================
     # 2️⃣ STRATEGY EXECUTION

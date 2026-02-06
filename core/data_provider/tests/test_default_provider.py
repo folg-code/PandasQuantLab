@@ -3,7 +3,7 @@ import pandas as pd
 from config.logger_config import NullLogger
 
 from core.data_provider import CsvMarketDataCache
-from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
+from core.data_provider.providers.default_provider import BacktestStrategyDataProvider
 
 def test_no_cache_fetches_and_saves(tmp_path, utc):
 
@@ -19,7 +19,7 @@ def test_no_cache_fetches_and_saves(tmp_path, utc):
         ("EURUSD", "M1", start, end): df_full,
     })
 
-    p = DefaultOhlcvDataProvider(
+    p = BacktestStrategyDataProvider(
         backend=backend,
         cache=cache,
         backtest_start=start,
@@ -55,8 +55,8 @@ def test_missing_before_fetches_pre_and_appends(tmp_path, utc):
         ("EURUSD", "M1", utc("2022-01-01 00:00:00"), utc("2022-01-01 00:05:00")): df_pre
     })
 
-    from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
-    p = DefaultOhlcvDataProvider(
+    from core.data_provider.providers.default_provider import BacktestStrategyDataProvider
+    p = BacktestStrategyDataProvider(
         backend=backend, cache=cache,
         backtest_start=start, backtest_end=end,
         logger=NullLogger(),
@@ -89,8 +89,8 @@ def test_missing_after_fetches_post_and_appends(tmp_path, utc):
         ("EURUSD", "M1", utc("2022-01-01 00:05:00"), utc("2022-01-01 00:10:00")): df_post
     })
 
-    from core.data_provider.providers.default_provider import DefaultOhlcvDataProvider
-    p = DefaultOhlcvDataProvider(
+    from core.data_provider.providers.default_provider import BacktestStrategyDataProvider
+    p = BacktestStrategyDataProvider(
         backend=backend, cache=cache,
         backtest_start=start, backtest_end=end,
         logger=NullLogger(),
