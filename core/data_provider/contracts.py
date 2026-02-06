@@ -15,20 +15,6 @@ class MarketDataBackend(Protocol):
     ) -> pd.DataFrame:
         ...
 
-
-class MarketDataProvider(ABC):
-
-    @abstractmethod
-    def get_ohlcv(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        bars: int,
-    ) -> pd.DataFrame:
-        pass
-
-
 class CsvMarketDataCache(Protocol):
     def coverage(self, *, symbol: str, timeframe: str): ...
     def load_range(self, *, symbol: str, timeframe: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame: ...
@@ -36,5 +22,9 @@ class CsvMarketDataCache(Protocol):
     def append(self, *, symbol: str, timeframe: str, df: pd.DataFrame) -> None: ...
 
 
-class OhlcvProvider(Protocol):
-    def get_ohlcv(self, *, symbol: str, timeframe: str, start: pd.Timestamp, end: pd.Timestamp,) -> pd.DataFrame: ...
+class StrategyDataProvider(Protocol):
+    """
+    Strategy-level data contract.
+    """
+    def fetch(self, symbol: str) -> dict[str, pd.DataFrame]:
+        ...

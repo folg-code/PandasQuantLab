@@ -8,7 +8,7 @@ from core.data_provider.clients.mt5_client import (
 from core.live_trading.engine import LiveEngine
 from core.live_trading.execution.mt5_adapter import MT5Adapter
 from core.live_trading.execution.position_manager import PositionManager
-from core.live_trading.strategy_adapter import LiveStrategyRunner
+from core.live_trading.strategy_runner  import LiveStrategyRunner
 
 from core.live_trading.trade_repo import TradeRepo
 from core.live_trading.strategy_loader import  load_strategy_class
@@ -119,12 +119,11 @@ class LiveTradingRunner:
         repo = TradeRepo()
         pm = PositionManager(repo=repo, adapter=adapter)
 
-        strategy_adapter = LiveStrategyRunner(
+        strategy_runner  = LiveStrategyRunner(
             strategy=self.strategy,
             provider=self.provider,
             symbol=self.cfg.SYMBOLS,
             startup_candle_count=self.cfg.STARTUP_CANDLE_COUNT,
-            df_execution=self.df_execution,
         )
 
         tf = MT5_TIMEFRAME_MAP[self.cfg.TIMEFRAME]
@@ -151,7 +150,7 @@ class LiveTradingRunner:
         self.engine = LiveEngine(
             position_manager=pm,
             market_data_provider=market_data_provider,
-            strategy_adapter=strategy_adapter,
+            strategy_runner =strategy_runner ,
             tick_interval_sec=self.cfg.TICK_INTERVAL_SEC,
         )
 

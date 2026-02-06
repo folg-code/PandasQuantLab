@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pandas as pd
 
-from config.logger_config import RunLogger
 from core.data_provider.ohlcv_schema import sort_and_deduplicate, ensure_utc_time
 from core.utils.timeframe import timeframe_to_pandas_freq
 

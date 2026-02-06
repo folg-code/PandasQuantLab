@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 import time
 
-from core.live_trading.strategy_adapter import LiveStrategyRunner
+from core.live_trading.strategy_runner import LiveStrategyRunner
 
 
 class LiveEngine:
@@ -19,12 +19,12 @@ class LiveEngine:
         *,
         position_manager,
         market_data_provider,
-        strategy_adapter: LiveStrategyRunner,
+        strategy_runner: LiveStrategyRunner,
         tick_interval_sec: float = 1.0,
     ):
         self.position_manager = position_manager
         self.market_data_provider = market_data_provider
-        self.strategy_adapter = strategy_adapter
+        self.strategy_runner = strategy_runner
         self.tick_interval_sec = tick_interval_sec
 
         self._running = False
@@ -94,7 +94,7 @@ class LiveEngine:
 
         self._last_candle_time = candle_time
 
-        result = self.strategy_adapter.on_new_candle()
+        result = self.strategy_runner.run()
         self._last_strategy_row = result.last_row
 
         if result.plan is not None:
