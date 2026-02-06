@@ -30,13 +30,11 @@ class LiveStrategyAdapter:
         self,
         *,
         strategy,
-        provider,
         symbol: str,
         startup_candle_count: int,
         df_execution: pd.DataFrame,
     ):
         self.strategy = strategy
-        self.provider = provider
         self.symbol = symbol
         self.startup_candle_count = startup_candle_count
         self.df_execution = df_execution
@@ -47,7 +45,6 @@ class LiveStrategyAdapter:
         df_plot = execute_strategy(
             strategy=self.strategy,
             df=self.df_execution,
-            provider=self.provider,
             symbol=self.symbol,
             startup_candle_count=self.startup_candle_count,
         )
