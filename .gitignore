@@ -91,3 +91,4 @@ Strategies/*
 
 # But keep this specific file
 !Strategies/Samplestrategy.py
+!Strategies/Samplestrategyreport.py

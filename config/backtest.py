@@ -2,7 +2,7 @@ import logging
 from enum import Enum
 from pathlib import Path
 
-from config.logger_config import LoggerConfig
+from core.logging.config import LoggerConfig
 
 logging.basicConfig(level=logging.INFO)
 
@@ -121,7 +121,6 @@ REPORT_FAIL_ON_EMPTY = True
 PLOT_ONLY = False          # Skip backtest, just plots
 SAVE_TRADES_CSV = False   # Legacy / debug only
 
-from config.logger_config import LoggerConfig
 
 LOGGER_CONFIG = LoggerConfig(
     stdout=True,

@@ -1,19 +1,14 @@
 import pandas as pd
 import MetaTrader5 as mt5
 
-from core.data_provider.contracts import MarketDataProvider
+from core.data_provider.contracts import LiveMarketDataClient
 from core.utils.lookback import LOOKBACK_CONFIG
 from core.utils.timeframe import MT5_TIMEFRAME_MAP
 
 
-class MT5Client(MarketDataProvider):
+class MT5Client(LiveMarketDataClient):
 
-    def __init__(
-            self,
-            *,
-            bars_per_tf: dict[str, int]):
 
-        self.bars_per_tf = bars_per_tf
 
     @staticmethod
     def _fetch_ohlcv(

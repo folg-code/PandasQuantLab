@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import pandas as pd
 
-from config.logger_config import RunLogger
 from core.data_provider.ohlcv_schema import sort_and_deduplicate, ensure_utc_time
 from core.utils.timeframe import timeframe_to_pandas_freq
 
 
-class DefaultOhlcvDataProvider:
+class BacktestStrategyDataProvider:
     """
     BACKTEST OHLCV provider.
 
@@ -18,18 +17,22 @@ class DefaultOhlcvDataProvider:
     """
 
     def __init__(
-        self,
-        *,
-        backend,
-        cache,
-        backtest_start: pd.Timestamp,
-        backtest_end: pd.Timestamp,
-        logger
+            self,
+            *,
+            backend,
+            cache,
+            backtest_start: pd.Timestamp,
+            backtest_end: pd.Timestamp,
+            required_timeframes: list[str],
+            startup_candle_count: int,
+            logger,
     ):
         self.backend = backend
         self.cache = cache
         self.backtest_start = self._to_utc(backtest_start)
         self.backtest_end = self._to_utc(backtest_end)
+        self.required_timeframes = required_timeframes
+        self.startup_candle_count = startup_candle_count
         self.logger = logger
 
     # -------------------------------------------------
@@ -72,7 +75,7 @@ class DefaultOhlcvDataProvider:
     # Main API
     # -------------------------------------------------
 
-    def get_ohlcv(
+    def _get_ohlcv(
             self,
             *,
             symbol: str,
@@ -185,7 +188,7 @@ class DefaultOhlcvDataProvider:
     # Informative data
     # -------------------------------------------------
 
-    def get_informative_df(
+    def _get_informative_df(
             self,
             *,
             symbol: str,
@@ -207,7 +210,7 @@ class DefaultOhlcvDataProvider:
             candles=startup_candle_count,
         )
 
-        df = self.get_ohlcv(
+        df = self._get_ohlcv(
             symbol=symbol,
             timeframe=timeframe,
             start=extended_start,
@@ -215,3 +218,26 @@ class DefaultOhlcvDataProvider:
         )
 
         return df.copy()
+
+    def fetch(self, symbol: str) -> dict[str, pd.DataFrame]:
+        """
+        Strategy-level data fetch for BACKTEST.
+
+        Returns:
+            data_by_tf: dict[timeframe, DataFrame]
+        """
+
+        data: dict[str, pd.DataFrame] = {}
+
+        # strategia deklaruje wymagane TF
+        # (dokładnie jak w backteście dziś)
+        # np. runner już to wie
+        for tf in self.required_timeframes:
+            df = self._get_informative_df(
+                symbol=symbol,
+                timeframe=tf,
+                startup_candle_count=self.startup_candle_count,
+            )
+            data[tf] = df
+
+        return data

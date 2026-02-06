@@ -9,147 +9,194 @@ README intentionally keeps pipelines simplified.
 
 ```mermaid
 flowchart LR
-  A[run] --> D
 
-  %% =====================
-  %% DATA
-  %% =====================
-  subgraph D[Data Layer]
-    D1[Create backend] --> D2[OHLCV Provider + Cache]
-    D2 --> D3[Load OHLCV<br/>per symbol]
-    D3 --> D4[all_data]
-  end
+    RUN[BacktestRunner.run]
 
-  %% =====================
-  %% STRATEGY
-  %% =====================
-  D4 --> S
-  subgraph S[Strategy Layer]
-    S1{Single / Multi symbol?}
-    S2[run_strategy_single]
-    S3[Parallel execution<br/>ProcessPoolExecutor]
-    S4[signals_df]
-    S5[return dataframe<br/>with entry signals<br/>and exit plan]
+    RUN --> DATA[Data Loading]
+    DATA --> STRAT[Strategy Execution]
+    STRAT --> BT[Backtesting Engine]
+    BT --> RES[Result Build]
+    RES --> REP[Reporting]
 
-    S1 -->|single| S2 --> S4
-    S1 -->|multi| S3 --> S4
-    S4 --> S5
-  end
+    subgraph DATA[Data Layer]
+        DL1[BacktestStrategyDataProvider]
+        DL2[CsvMarketDataCache]
+        DL3[Backend Fetch]
+        DL1 --> DL2
+        DL1 --> DL3
+    end
 
-  %% =====================
-  %% RESEARCH PLOT MODE
-  %% =====================
-  S --> P{Plot charts<br/>symbol only<br/>research mode}
-  P -->|yes| PL[Plot charts<br/>PNG artifacts]
-  PL --> END1[Exit]
+    subgraph STRAT[Strategy Layer]
+        S1[run_strategies]
+        S2[run_strategy_single / parallel]
+        S3[apply_informatives]
+        S4[populate_indicators]
+        S5[populate_entry_trend]
+        S6[populate_exit_trend]
+        S7[build_trade_plans]
 
-  %% =====================
-  %% BACKTEST
-  %% =====================
-  P -->|no| B
-  subgraph B[Execution / Backtest]
-    B1{BACKTEST_MODE}
-    B2[Single window]
-    B3[Split windows]
-    B4[Backtester.run]
-    B5[return dataframe<br/>with trades]
+        S1 --> S2
+        S2 --> S3 --> S4 --> S5 --> S6 --> S7
+    end
 
-    B1 -->|single| B2 --> B4
-    B1 -->|split| B3 --> B4
-    B4 --> B5
-  end
+    subgraph BT[Execution Layer]
+        B1[Backtester]
+        B2[run_backtests_single / parallel]
+        B4[execution_loop]
 
-  %% =====================
-  %% REPORT
-  %% =====================
-  B --> R{Generate report?}
-  R -->|no| END2[Exit: backtest only]
-  R -->|yes| REP
+        B2 --> B1
+        B1 --> B4
+    end
 
-  subgraph REP[Risk & Reporting]
-    R1[RiskDataPreparer]
-    R2[TradeContextEnricher]
-    R3[ReportRunner]
-    R4[Metrics, tables, charts]
-    R5[render reports:<br/>stdout tables or html dashboard]
+    subgraph REP[Reporting Layer]
+        R1[ReportRunner]
+        R2[Per‑symbol reports]
+        R3[SummaryReportRunner]
 
-    R1 --> R2 --> R3 --> R4 --> R5
-  end
-
-  R5 --> END3[Exit: full run]
+        R1 --> R2
+        R1 --> R3
+    end
 ```
 ---
 
 ## LiveTradingRunner — detailed flow
 ```mermaid
 flowchart LR
-  A[run] --> M
 
-  %% =====================
-  %% MT5 INIT
-  %% =====================
-  subgraph M[MT5 Init]
-    M1[mt5.initialize] --> M2[symbol_select]
-    M2 --> M3[account_info<br/>log balance]
-  end
+    %% =================================================
+    %% ENTRY POINT
+    %% =================================================
+    A[LiveTradingRunner.run]
 
-  %% =====================
-  %% WARMUP DATA
-  %% =====================
-  M --> W
-  subgraph W[Warmup Data]
-    W1[Resolve timeframe + lookback] --> W2[copy_rates_from_pos<br/>bars]
-    W2 --> W3[Build DataFrame<br/>UTC time]
-    W3 --> W4[df_execution]
-  end
+    %% =================================================
+    %% INIT SECTION
+    %% =================================================
+    subgraph INIT[Initialization]
 
-  %% =====================
-  %% INFORMATIVE PROVIDER
-  %% =====================
-  W4 --> I
-  subgraph I[Informative Provider]
-    I1[load_strategy_class] --> I2[get_required_informatives]
-    I2 --> I3[compute bars_per_tf<br/>lookback + MIN_HTF_BARS]
-    I3 --> I4[MT5Client<br/>bars_per_tf]
-  end
+        B[MT5 initialize]
+        C[Symbol select]
+        D[Load Strategy Class]
+        E[Build Live Logger]
 
-  %% =====================
-  %% STRATEGY
-  %% =====================
-  I4 --> S
-  W4 --> S
-  subgraph S[Strategy Layer]
-    S1[load_strategy<br/>df_execution + symbol + startup_candle_count] --> S2[strategy]
-  end
+    end
 
-  %% =====================
-  %% ENGINE BUILD
-  %% =====================
-  S2 --> E
-  subgraph E[Execution / Live Engine]
-    E1[MT5Adapter<br/>dry_run flag]
-    E2[TradeRepo]
-    E3[PositionManager<br/>repo + adapter]
-    E4[LiveStrategyAdapter<br/>wrap strategy]
-    E5[market_data_provider<br/>last closed candle]
-    E6[LiveEngine<br/>tick_interval_sec]
+    A --> INIT
+    INIT --> B --> C
+    INIT --> D
+    INIT --> E
 
-    E1 --> E3
-    E2 --> E3
-    E4 --> E6
-    E5 --> E6
-    E3 --> E6
-  end
+    %% =================================================
+    %% DATA LAYER
+    %% =================================================
+    subgraph DATA[Data Layer]
 
-  %% =====================
-  %% RUN LOOP (conceptual)
-  %% =====================
-  E --> R
-  subgraph R[Run Loop]
-    R1[engine.start] --> R2{Tick}
-    R2 --> R3[market_data_provider]
-    R3 --> R4[strategy_adapter<br/>intents]
-    R4 --> R5[position_manager<br/>orders/positions]
-    R5 --> R2
-  end
+        F[Strategy declares required timeframes]
+        G[MT5Client]
+        H[LiveStrategyDataProvider]
+        I[MT5MarketStateProvider]
+
+    end
+
+    D --> F
+    G --> H
+    F --> H
+    A --> H
+    A --> I
+
+    %% =================================================
+    %% STRATEGY LAYER
+    %% =================================================
+    subgraph STRATEGY[Strategy Layer]
+
+        J[LiveStrategyRunner]
+
+        subgraph DOMAIN[Strategy Domain *shared with backtest*]
+
+            K[apply_informatives]
+            L[populate_indicators]
+            M[populate_entry_trend]
+            N[populate_exit_trend]
+            O[build_trade_plans]
+
+            K --> L --> M --> N --> O
+        end
+
+    end
+
+    H --> J
+    D --> J
+    J --> K
+
+    %% =================================================
+    %% EXECUTION LAYER
+    %% =================================================
+    subgraph EXECUTION[Execution Layer]
+
+        P[LiveEngine]
+        Q[PositionManager]
+        R[TradeRepo / TradeStateService]
+        S[MT5Adapter]
+        T[MetaTrader5 API]
+
+    end
+
+    %% =================================================
+    %% RUNTIME FLOW
+    %% =================================================
+
+    %% Market state into engine
+    I --> P
+
+    %% Trade plans into engine
+    O --> P
+
+    %% Engine orchestration
+    P --> Q
+    Q --> R
+    Q --> S
+    S --> T
+
+    %% =================================================
+    %% FEEDBACK LOOPS
+    %% =================================================
+
+    T -->|broker-driven exits| Q
+    P -->|tick loop| P
+```
+
+## BacktestDataProvider — detailed flow
+```mermaid
+flowchart TB
+    %% ===== Nodes =====
+    U[Caller / Runner] --> P[BacktestStrategyDataProvider.get_ohlcv]
+
+    P -->|1 cache.coverage symbol, timeframe| C[CsvMarketDataCache]
+    C -->|returns: None or cov_start, cov_end| P
+
+    %% ===== Decision: cache coverage =====
+    P --> D1{Coverage exists?}
+
+    D1 -- No --> B1[backend.fetch_ohlcv full range]
+    B1 --> N1[_validate/_normalize provider-side]
+    N1 -->|cache.save... if fetched| C
+    N1 --> R1[return merged DF]
+
+    D1 -- Yes --> D2{Missing pre-range?}
+    D2 -- Yes --> B2[backend.fetch_ohlcv pre range]
+    B2 --> N2[_validate/_normalize]
+    N2 -->|cache.append pre if non-empty| C
+
+    D2 -- No --> D3{Missing post-range?}
+
+    D3 -- Yes --> B3[backend.fetch_ohlcv post range]
+    B3 --> N3[_validate/_normalize]
+    N3 -->|cache.append post if non-empty| C
+
+    %% ===== Load middle part =====
+    D3 -- No --> M[cache.load_range requested range]
+    N2 --> M
+    N3 --> M
+
+    M --> R2[merge pre + mid + post]
+    R2 --> R3[return merged DF]
 ```

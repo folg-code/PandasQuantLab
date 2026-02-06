@@ -22,7 +22,7 @@ class PositionManager:
 
     Responsibilities:
     - consume TradePlan and execute entry
-    - monitor active positions and perform exits (engine-managed)
+    - monitor active positions and perform exits
     - keep repo in sync with broker
     """
 
@@ -30,6 +30,13 @@ class PositionManager:
         self.repo = repo
         self.adapter = adapter
         self.state = TradeStateService(repo=repo, adapter=adapter)
+
+    # ==================================================
+    # Helpers
+    # ==================================================
+
+    def _is_dry_run(self) -> bool:
+        return bool(getattr(self.adapter, "dry_run", False))
 
     # ==================================================
     # ENTRY
@@ -43,7 +50,11 @@ class PositionManager:
         execution = ExitExecution.from_config(plan.strategy_config)
 
         volume = self._compute_volume(plan=plan)
-        params = trade_plan_to_mt5_order(plan=plan, volume=volume, execution=execution)
+        params = trade_plan_to_mt5_order(
+            plan=plan,
+            volume=volume,
+            execution=execution,
+        )
 
         print(
             f"📦 EXECUTING TRADE PLAN | {plan.symbol} {plan.direction} "
@@ -54,13 +65,15 @@ class PositionManager:
             symbol=params.symbol,
             direction=params.direction,
             volume=params.volume,
-            price=params.price,
             sl=params.sl,
             tp=params.tp,
         )
 
-        # Store execution policy with the trade so tick handler uses the same rules.
-        # If your repo does not support extra payload, persist it inside the stored trade dict.
+        # ENTRY may be skipped (CLOSE-ONLY, DRY_RUN guard etc.)
+        if result is None:
+            print(f"⚠ ENTRY skipped for {plan.symbol}")
+            return
+
         self.state.record_entry(
             plan=plan,
             exec_result=result,
@@ -77,8 +90,7 @@ class PositionManager:
             sl=plan.exit_plan.sl,
             max_risk=max_risk,
         )
-        norm = Mt5RiskParams.normalize_volume(plan.symbol, raw_volume)
-        return norm
+        return Mt5RiskParams.normalize_volume(plan.symbol, raw_volume)
 
     # ==================================================
     # TICK LOOP
@@ -98,26 +110,46 @@ class PositionManager:
 
             execution = self._get_execution(trade)
 
-            if self._handle_managed_exit_signal(trade_id=trade_id, trade=trade, market_state=market_state, price=price, now=now):
+            if self._handle_managed_exit_signal(
+                trade_id=trade_id,
+                trade=trade,
+                market_state=market_state,
+                price=price,
+                now=now,
+            ):
                 continue
 
-            # TP1 / BE (only if TP1 is engine-managed; otherwise repo should mark it from broker sync or you ignore TP1)
-            if self._handle_tp1_and_be(trade_id=trade_id, trade=trade, execution=execution, price=price, now=now):
+            if self._handle_tp1_and_be(
+                trade_id=trade_id,
+                trade=trade,
+                execution=execution,
+                price=price,
+                now=now,
+            ):
                 continue
 
-            self._handle_trailing_sl(trade_id=trade_id, trade=trade, market_state=market_state)
+            self._handle_trailing_sl(
+                trade_id=trade_id,
+                trade=trade,
+                market_state=market_state,
+            )
 
-            if self._handle_engine_exit(trade_id=trade_id, trade=trade, execution=execution, price=price, now=now):
-                continue
+            self._handle_engine_exit(
+                trade_id=trade_id,
+                trade=trade,
+                execution=execution,
+                price=price,
+                now=now,
+            )
 
     # ==================================================
-    # Tick handlers (small, testable pieces)
+    # Tick handlers
     # ==================================================
 
     def _handle_broker_sync(self, *, trade_id: str, trade: dict, now: datetime) -> bool:
-        """
-        If broker closed the position (e.g. broker TP2), sync repo and stop processing.
-        """
+        if self._is_dry_run():
+            return False
+
         positions = mt5.positions_get(ticket=int(trade["ticket"]))
         if positions:
             return False
@@ -150,7 +182,13 @@ class PositionManager:
             and signal_exit.get("direction") == "close"
         ):
             print(f"🚪 MANAGED EXIT for {trade_id}")
-            self.adapter.close_position(ticket=trade["ticket"], price=price)
+
+            if not self._is_dry_run():
+                self.adapter.close_position(
+                    ticket=trade["ticket"],
+                    price=price,
+                )
+
             self.state.record_exit(
                 trade_id=trade_id,
                 price=price,
@@ -171,36 +209,36 @@ class PositionManager:
         price: float,
         now: datetime,
     ) -> bool:
-        """
-        TP1 partial close and optional SL->BE.
-
-        Rules:
-        - If TP1 is DISABLED -> do nothing.
-        - If TP1 is BROKER -> do not do partial close (broker closes full; partial isn't supported that way).
-          (You can still do BE_ON_TP1 if you detect price reached tp1; that's optional and controlled below.)
-        - If TP1 is ENGINE -> run partial close logic.
-        """
         if trade.get("tp1_executed"):
             return False
 
         if execution.tp1 == "DISABLED":
             return False
 
-        # Detect TP1 reached (price-based)
         if not LiveExitRules.check_tp1_hit(trade=trade, price=price):
             return False
 
         if execution.tp1 == "ENGINE":
-            self._execute_tp1_partial(trade_id=trade_id, trade=trade, price=price, now=now)
+            self._execute_tp1_partial(
+                trade_id=trade_id,
+                trade=trade,
+                price=price,
+                now=now,
+            )
 
-        # Move SL -> BE when TP1 is reached (applies for ENGINE or BROKER TP1 if you want)
         if execution.be_on_tp1:
             self._try_move_sl_to_be(trade_id=trade_id, trade=trade)
 
-        # If we just executed TP1 partial, we end tick processing for that trade
         return execution.tp1 == "ENGINE"
 
-    def _execute_tp1_partial(self, *, trade_id: str, trade: dict, price: float, now: datetime) -> None:
+    def _execute_tp1_partial(
+        self,
+        *,
+        trade_id: str,
+        trade: dict,
+        price: float,
+        now: datetime,
+    ) -> None:
         total_vol = float(trade["volume"])
         cfg = trade.get("strategy_config", {})
         close_ratio = float(cfg.get("TP1_CLOSE_RATIO", 0.5))
@@ -212,7 +250,12 @@ class PositionManager:
 
         print(f"🎯 TP1 PARTIAL CLOSE {trade_id}: {close_vol}/{total_vol}")
 
-        self.adapter.close_partial(ticket=trade["ticket"], volume=close_vol, price=price)
+        if not self._is_dry_run():
+            self.adapter.close_partial(
+                ticket=trade["ticket"],
+                volume=close_vol,
+                price=price,
+            )
 
         self.state.mark_tp1_executed(
             trade_id=trade_id,
@@ -226,7 +269,10 @@ class PositionManager:
         current_sl = float(trade["sl"])
         direction = trade["direction"]
 
-        already_be = (direction == "long" and current_sl >= entry) or (direction == "short" and current_sl <= entry)
+        already_be = (
+            (direction == "long" and current_sl >= entry)
+            or (direction == "short" and current_sl <= entry)
+        )
         if already_be:
             return
 
@@ -234,7 +280,13 @@ class PositionManager:
         self.state.update_sl(trade_id=trade_id, new_sl=entry)
         self.state.set_flag(trade_id=trade_id, key="be_moved", value=True)
 
-    def _handle_trailing_sl(self, *, trade_id: str, trade: dict, market_state: dict) -> None:
+    def _handle_trailing_sl(
+        self,
+        *,
+        trade_id: str,
+        trade: dict,
+        market_state: dict,
+    ) -> None:
         cfg = trade.get("strategy_config", {})
         if not cfg.get("USE_TRAILING"):
             return
@@ -255,7 +307,10 @@ class PositionManager:
         current_sl = float(trade["sl"])
         direction = trade["direction"]
 
-        improved = (direction == "long" and candidate > current_sl) or (direction == "short" and candidate < current_sl)
+        improved = (
+            (direction == "long" and candidate > current_sl)
+            or (direction == "short" and candidate < current_sl)
+        )
         if not improved:
             return
 
@@ -271,23 +326,16 @@ class PositionManager:
         price: float,
         now: datetime,
     ) -> bool:
-        """
-        Engine-managed exits:
-        - SL is always engine-managed (we close if price crosses SL)
-        - TP2 can be engine-managed or broker-managed
-        """
-        # If TP2 is broker-managed, we still allow engine check as a safety net.
         exit_res = LiveExitRules.check_exit(trade=trade, price=price, now=now)
         if exit_res is None:
             return False
 
-        # Respect TP2 executor if you want strict behavior:
-        if exit_res.reason == "TP2" and execution.tp2 != "ENGINE":
-            # broker should close it; keep it as safety net? choose:
-            # return False  # strict
-            pass            # permissive safety net (default)
+        if not self._is_dry_run():
+            self.adapter.close_position(
+                ticket=trade["ticket"],
+                price=exit_res.exit_price,
+            )
 
-        self.adapter.close_position(ticket=trade["ticket"], price=exit_res.exit_price)
         self.state.record_exit(
             trade_id=trade_id,
             price=exit_res.exit_price,
@@ -298,12 +346,8 @@ class PositionManager:
         return True
 
     def _get_execution(self, trade: dict) -> ExitExecution:
-        """
-        Prefer persisted execution policy from repo; fallback to strategy_config.
-        """
         raw = trade.get("exit_execution")
         if isinstance(raw, dict):
-            # reconstruct via config to keep defaults consistent
             return ExitExecution.from_config({"EXIT_EXECUTION": raw})
 
         cfg = trade.get("strategy_config", {})

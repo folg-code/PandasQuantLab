@@ -5,183 +5,95 @@ from core.data_provider.clients.mt5_client import (
     lookback_to_bars,
     MT5Client,
 )
+from core.data_provider.providers.live_provider import LiveStrategyDataProvider
 from core.live_trading.engine import LiveEngine
-from core.live_trading.strategy_adapter import LiveStrategyAdapter
-from core.live_trading.execution import PositionManager
-from core.live_trading.execution import MT5Adapter
+from core.live_trading.execution.mt5_adapter import MT5Adapter
+from core.live_trading.execution.position_manager import PositionManager
+from core.live_trading.logging import create_live_logger
+from core.live_trading.mt5_market_state import MT5MarketStateProvider
+from core.live_trading.strategy_runner  import LiveStrategyRunner
+
 from core.live_trading.trade_repo import TradeRepo
 from core.live_trading.strategy_loader import  load_strategy_class
-from core.utils.lookback import LOOKBACK_CONFIG, MIN_HTF_BARS
-from core.utils.timeframe import MT5_TIMEFRAME_MAP
+from core.logging.config import LoggerConfig
+from core.logging.prefix import LOG_PREFIX
+from core.logging.run_logger import RunLogger
+from core.utils.lookback import LOOKBACK_CONFIG
 
 
 class LiveTradingRunner:
     """
-    MT5 live trading runner.
-    Symmetric API to BacktestRunner.
+    Live trading application runner.
     """
 
     def __init__(self, cfg):
         self.cfg = cfg
+        self.log = create_live_logger(cfg.SYMBOLS)
 
-        self.engine = None
-        self.strategy = None
-        self.provider = None
+    def run(self):
+        self.log.info("starting live trading runner")
 
-    # ==================================================
-    # 1️⃣ MT5 INIT
-    # ==================================================
-
-    def _init_mt5(self):
         if not mt5.initialize():
-            raise RuntimeError(f"MT5 init failed: {mt5.last_error()}")
+            self.log.error("MT5 init failed")
+            raise RuntimeError("MT5 init failed")
 
-        if not mt5.symbol_select(self.cfg.SYMBOLS, True):
-            raise RuntimeError(
-                f"Symbol not available: {self.cfg.SYMBOLS}"
-            )
-
-        info = mt5.account_info()
-        print(
-            f"🟢 MT5 connected | "
-            f"Account={info.login} "
-            f"Balance={info.balance}"
+        mt5.symbol_select(self.cfg.SYMBOLS, True)
+        self.log.info(
+            "MT5 initialized",
         )
 
-    # ==================================================
-    # 2️⃣ INITIAL DATA (WARMUP)
-    # ==================================================
-
-    def _load_initial_data(self) -> pd.DataFrame:
-        tf = MT5_TIMEFRAME_MAP[self.cfg.TIMEFRAME]
-        lookback = LOOKBACK_CONFIG[self.cfg.TIMEFRAME]
-        bars = lookback_to_bars(self.cfg.TIMEFRAME, lookback)
-
-        rates = mt5.copy_rates_from_pos(
-            self.cfg.SYMBOLS, tf, 0, bars
-        )
-
-        if rates is None or len(rates) == 0:
-            raise RuntimeError("Initial MT5 data fetch failed")
-
-        df = pd.DataFrame(rates)
-        df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
-
-        print(
-            f"📦 Warmup loaded | "
-            f"{len(df)} candles ({self.cfg.TIMEFRAME})"
-        )
-
-        return df
-
-    # ==================================================
-    # 3️⃣ INFORMATIVE PROVIDER
-    # ==================================================
-
-    def _build_provider(self) -> MT5Client:
-        StrategyClass = load_strategy_class(
-            self.cfg.STRATEGY_CLASS
-        )
+        StrategyClass = load_strategy_class(self.cfg.STRATEGY_CLASS)
 
         bars_per_tf = {}
-        for tf in StrategyClass.get_required_informatives():
+        for tf in [self.cfg.TIMEFRAME] + StrategyClass.get_required_informatives():
             lookback = LOOKBACK_CONFIG[tf]
-            bars_per_tf[tf] = max(
-                lookback_to_bars(tf, lookback),
-                MIN_HTF_BARS.get(tf, 0),
-            )
+            bars_per_tf[tf] = lookback_to_bars(tf, lookback)
 
-        provider = MT5Client(bars_per_tf=bars_per_tf)
+        self.log.debug(
+            "bars_per_tf built",
+            # jeśli chcesz, możesz to dać do contextu
+        )
 
-        return provider
+        client = MT5Client()
+        data_provider = LiveStrategyDataProvider(
+            client=client,
+            bars_per_tf=bars_per_tf,
+        )
 
-    # ==================================================
-    # 4️⃣ STRATEGY
-    # ==================================================
-
-    def _build_strategy(self, df_execution: pd.DataFrame):
-        self.strategy = load_strategy_class(self.cfg.STRATEGY_CLASS)(
-            df=df_execution,
+        strategy = StrategyClass(
+            df=None,
             symbol=self.cfg.SYMBOLS,
             startup_candle_count=self.cfg.STARTUP_CANDLE_COUNT,
         )
 
-        self.strategy.validate()
+        strategy_runner = LiveStrategyRunner(
+            strategy=strategy,
+            data_provider=data_provider,
+            symbol=self.cfg.SYMBOLS,
+        )
 
-    # ==================================================
-    # 5️⃣ ENGINE
-    # ==================================================
+        market_state_provider = MT5MarketStateProvider(
+            symbol=self.cfg.SYMBOLS,
+            timeframe=self.cfg.TIMEFRAME,
+        )
 
-    def _build_engine(self):
-
-        adapter = MT5Adapter(dry_run=self.cfg.DRY_RUN)
+        adapter = MT5Adapter(
+            dry_run=self.cfg.DRY_RUN,
+            log=self.log.with_context(component="adapter"),
+        )
         repo = TradeRepo()
         pm = PositionManager(repo=repo, adapter=adapter)
 
-        strategy_adapter = LiveStrategyAdapter(
-            strategy=self.strategy,
-            provider=self.provider,
-            symbol=self.cfg.SYMBOLS,
-            startup_candle_count=self.cfg.STARTUP_CANDLE_COUNT,
-            df_execution=self.df_execution,
-        )
-
-        tf = MT5_TIMEFRAME_MAP[self.cfg.TIMEFRAME]
-
-        def market_data_provider():
-            rates = mt5.copy_rates_from_pos(
-                self.cfg.SYMBOLS, tf, 0, 2
-            )
-            if rates is None or len(rates) < 2:
-                return None
-
-            last_closed = rates[-2]
-
-            candle_ts = pd.to_datetime(
-                last_closed["time"], unit="s", utc=True
-            )
-
-            return {
-                "price": float(last_closed["close"]),
-                "time": candle_ts,  # logical event time
-                "candle_time": candle_ts  # SAME TYPE, SAME MEANING
-            }
-
-        self.engine = LiveEngine(
+        engine = LiveEngine(
             position_manager=pm,
-            market_data_provider=market_data_provider,
-            strategy_adapter=strategy_adapter,
+            market_state_provider=market_state_provider,
+            strategy_runner=strategy_runner,
             tick_interval_sec=self.cfg.TICK_INTERVAL_SEC,
         )
 
-        print("⚙️ LiveEngine ready")
+        self.log.with_context(
+            timeframe=self.cfg.TIMEFRAME,
+            dry_run=self.cfg.DRY_RUN,
+        ).info("LIVE STARTED")
 
-    # ==================================================
-    # 6️⃣ RUN
-    # ==================================================
-
-    def run(self):
-        print("🚀 LiveTradingRunner start")
-
-        self._init_mt5()
-        self.df_execution = self._load_initial_data()
-        self.provider = self._build_provider()
-
-        self._build_strategy(self.df_execution)
-        self._build_engine()
-
-        print(
-            f"🚀 LIVE TRADING STARTED | "
-            f"{self.cfg.SYMBOLS} {self.cfg.TIMEFRAME} "
-            f"DRY_RUN={self.cfg.DRY_RUN}"
-        )
-
-        self.engine.start()
-
-    # ==================================================
-    # 7️⃣ SHUTDOWN
-    # ==================================================
-
-    def shutdown(self):
-        mt5.shutdown()
-        print("🔴 MT5 shutdown")
+        engine.start()

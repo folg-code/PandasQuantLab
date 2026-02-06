@@ -98,5 +98,25 @@
     "exit_time": "2026-02-05 19:35:00+00:00",
     "exit_reason": "BROKER_CLOSED",
     "exit_level_tag": "TP2_live"
+  },
+  "MOCK_BTCUSD": {
+    "trade_id": "MOCK_BTCUSD",
+    "symbol": "BTCUSD",
+    "direction": "short",
+    "entry_price": 68754.98,
+    "volume": 0.0,
+    "sl": 68944.97525051115,
+    "tp1": 68564.98474948884,
+    "tp2": 68374.98949897768,
+    "tp1_executed": false,
+    "entry_time": "2026-02-06T17:43:00+00:00",
+    "entry_tag": "short_mask",
+    "strategy": "Samplestrategyreport",
+    "strategy_config": {},
+    "ticket": "MOCK_BTCUSD",
+    "exit_price": 69137.2,
+    "exit_time": "2026-02-06 17:47:00+00:00",
+    "exit_reason": "SL",
+    "exit_level_tag": "SL_live"
   }
 }

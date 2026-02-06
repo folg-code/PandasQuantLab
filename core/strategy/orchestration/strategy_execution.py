@@ -2,17 +2,13 @@ import pandas as pd
 from core.strategy.orchestration.informatives import apply_informatives
 
 
-def execute_strategy(
-    *,
-    strategy,
-    df: pd.DataFrame,
-    data_by_tf: dict[str, pd.DataFrame],
-) -> pd.DataFrame:
-    """
-    Shared strategy execution pipeline.
-    Used by backtest and live.
-    """
+def execute_strategy(*, strategy, df, **kwargs):
+    if kwargs:
+        raise TypeError(
+            f"execute_strategy does not accept extra args: {list(kwargs)}"
+        )
 
+    
     df = apply_informatives(
         df=df,
         strategy=strategy,
@@ -26,3 +22,5 @@ def execute_strategy(
     strategy.populate_exit_trend()
 
     return strategy.df
+
+

@@ -4,7 +4,6 @@ from core.backtesting.runner import BacktestRunner
 
 if __name__ == "__main__":
     import cProfile
-    import pstats
     from pathlib import Path
     from datetime import datetime
 

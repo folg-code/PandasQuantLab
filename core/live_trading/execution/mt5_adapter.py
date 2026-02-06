@@ -10,24 +10,22 @@ class MT5Adapter:
     """
 
     def __init__(
-        self,
-        *,
-        login: int | None = None,
-        password: str | None = None,
-        server: str | None = None,
-        dry_run: bool = False,
+            self,
+            *,
+            dry_run: bool = False,
+            log,
     ):
         self.dry_run = dry_run
+        self.log = log
 
         if self.dry_run:
-            print("⚠ MT5Adapter running in DRY-RUN mode")
+            self.log.warning("MT5Adapter running in DRY-RUN mode")
             return
 
         if not mt5.terminal_info():
             raise RuntimeError("MT5 terminal not initialized")
 
-        print("🟢 MT5 initialized")
-
+        self.log.info("MT5 initialized")
     # ==================================================
     # Execution API
     # ==================================================
@@ -38,24 +36,33 @@ class MT5Adapter:
             symbol: str,
             direction: str,
             volume: float,
-            price: float,
             sl: float,
             tp: float | None = None,
     ) -> Dict[str, Any]:
 
         if self.dry_run:
-            print(
+            self.log.debug(
                 f"[DRY-RUN] OPEN {symbol} {direction} "
-                f"vol={volume} price={price} sl={sl} tp={tp}"
+                f"vol={volume} sl={sl} tp={tp}"
             )
-            return {"ticket": f"MOCK_{symbol}", "price": price}
+            return {"ticket": f"MOCK_{symbol}", "price": None}
 
         # --------------------------------------------------
-        # SYMBOL + TICK
+        # SYMBOL INFO / MODE
         # --------------------------------------------------
         symbol_info = mt5.symbol_info(symbol)
         if symbol_info is None:
             raise RuntimeError(f"Symbol not found: {symbol}")
+
+        if symbol_info.trade_mode == mt5.SYMBOL_TRADE_MODE_CLOSEONLY:
+            raise RuntimeError(f"Symbol {symbol} is CLOSE-ONLY")
+
+        # --------------------------------------------------
+        # NETTING GUARD
+        # --------------------------------------------------
+        positions = mt5.positions_get(symbol=symbol)
+        if positions:
+            raise RuntimeError(f"Position already open for {symbol}")
 
         if not symbol_info.visible:
             mt5.symbol_select(symbol, True)
@@ -67,33 +74,32 @@ class MT5Adapter:
         market_price = tick.ask if direction == "long" else tick.bid
 
         # --------------------------------------------------
-        # VALIDATE SL / TP (ABSOLUTELY REQUIRED)
+        # SL / TP VALIDATION
         # --------------------------------------------------
         stops_level = symbol_info.trade_stops_level * symbol_info.point
 
         if direction == "long":
             if sl >= market_price:
-                raise RuntimeError(f"Invalid SL for long: sl={sl}, price={market_price}")
+                raise RuntimeError("Invalid SL for long")
             if tp is not None and tp <= market_price:
-                raise RuntimeError(f"Invalid TP for long: tp={tp}, price={market_price}")
+                raise RuntimeError("Invalid TP for long")
 
             if (market_price - sl) < stops_level:
-                raise RuntimeError(f"SL too close: {market_price - sl} < {stops_level}")
-            if tp is not None and (tp - market_price) < stops_level:
-                raise RuntimeError(f"TP too close: {tp - market_price} < {stops_level}")
+                raise RuntimeError("SL too close")
+            if tp and (tp - market_price) < stops_level:
+                raise RuntimeError("TP too close")
 
             order_type = mt5.ORDER_TYPE_BUY
-
-        else:  # short
+        else:
             if sl <= market_price:
-                raise RuntimeError(f"Invalid SL for short: sl={sl}, price={market_price}")
+                raise RuntimeError("Invalid SL for short")
             if tp is not None and tp >= market_price:
-                raise RuntimeError(f"Invalid TP for short: tp={tp}, price={market_price}")
+                raise RuntimeError("Invalid TP for short")
 
             if (sl - market_price) < stops_level:
-                raise RuntimeError(f"SL too close: {sl - market_price} < {stops_level}")
-            if tp is not None and (market_price - tp) < stops_level:
-                raise RuntimeError(f"TP too close: {market_price - tp} < {stops_level}")
+                raise RuntimeError("SL too close")
+            if tp and (market_price - tp) < stops_level:
+                raise RuntimeError("TP too close")
 
             order_type = mt5.ORDER_TYPE_SELL
 
@@ -133,7 +139,7 @@ class MT5Adapter:
     ) -> None:
 
         if self.dry_run:
-            print(f"[DRY-RUN] CLOSE ticket={ticket} price={price}")
+            self.log.debug(f"[DRY-RUN] CLOSE ticket={ticket} price={price}")
             return
 
         positions = mt5.positions_get(ticket=int(ticket))
@@ -168,7 +174,7 @@ class MT5Adapter:
 
     def close_partial(self, *, ticket: str, volume: float, price: float):
         if self.dry_run:
-            print(f"[DRY-RUN] PARTIAL CLOSE ticket={ticket} vol={volume} price={price}")
+            self.log.debug(f"[DRY-RUN] PARTIAL CLOSE ticket={ticket} vol={volume} price={price}")
             return
 
         request = {
@@ -187,7 +193,7 @@ class MT5Adapter:
 
     def modify_sl(self, *, ticket: str, new_sl: float):
         if self.dry_run:
-            print(f"[DRY-RUN] MODIFY SL ticket={ticket} sl={new_sl}")
+            self.log.debug(f"[DRY-RUN] MODIFY SL ticket={ticket} sl={new_sl}")
             return
 
         request = {
@@ -206,7 +212,7 @@ class MT5Adapter:
             raise RuntimeError(f"MT5 init failed: {mt5.last_error()}")
 
         info = mt5.account_info()
-        print(
+        self.log.debug(
             "🟢 MT5 initialized | "
             f"Account={info.login} "
             f"Balance={info.balance} "
@@ -216,4 +222,4 @@ class MT5Adapter:
     def shutdown(self):
         if not self.dry_run:
             mt5.shutdown()
-            print("🔴 MT5 shutdown")
+            self.log.debug("🔴 MT5 shutdown")
