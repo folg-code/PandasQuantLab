@@ -1,17 +1,23 @@
 import logging
+from enum import Enum
+from pathlib import Path
+
+from config.logger_config import LoggerConfig
 
 logging.basicConfig(level=logging.INFO)
 
 # ==================================================
-# DATA
+# DATA SOURCE & TIME
 # ==================================================
 
 MARKET_DATA_PATH = "market_data"
-BACKTEST_DATA_BACKEND = "dukascopy"   # "dukascopy"
+BACKTEST_DATA_BACKEND = "dukascopy"   # "dukascopy", "csv", ...
+
+SERVER_TIMEZONE = "UTC"
 
 TIMERANGE = {
-    "start": "2025-12-15",
-    "end":   "2025-12-31",
+    "start": "2025-01-01",
+    "end":   "2025-12-29",
 }
 
 BACKTEST_MODE = "single"  # "single" | "split"
@@ -22,92 +28,113 @@ BACKTEST_WINDOWS = {
     "FINAL": ("2025-12-24", "2025-12-31"),
 }
 
-# Missing data handling metadata (report/UI)
-# Examples:
-# - "Forward-fill OHLC gaps"
-# - "Drop candles with gaps"
-# - "Leave gaps (no fill)"
+# Metadata only (for reports / README)
 MISSING_DATA_HANDLING = "Forward-fill OHLC gaps"
 
-SERVER_TIMEZONE = "UTC"
-
 # ==================================================
-# STRATEGY
+# STRATEGY DEFINITION
 # ==================================================
 
-# If None, report will fall back to STRATEGY_CLASS.
-STRATEGY_NAME = "Sample "
+STRATEGY_CLASS = "Samplestrategyreport"
 
-# Optional short description (used in BacktestConfigSection)
+STRATEGY_NAME = "Sample Strategy"
 STRATEGY_DESCRIPTION = "Sample strategy for dashboard showcase"
 
-# Strategy class locator (string used by your loader)
-STRATEGY_CLASS = "Samplestrategyreport"
 STARTUP_CANDLE_COUNT = 600
 
 SYMBOLS = [
     "XAUUSD",
+    "EURUSD"
 ]
 
 TIMEFRAME = "M1"
 
-
 # ==================================================
-# EXECUTION (SIMULATED)
+# EXECUTION MODEL (SIMULATED)
 # ==================================================
 
 INITIAL_BALANCE = 10_000
 
-# Slippage assumed in "pips" for FX-like instruments in current convention.
-SLIPPAGE = 0.1
-
-# Optional: separate slippage for entry/exit (metadata now; logic later)
-SLIPPAGE_ENTRY = None  # if None -> use SLIPPAGE
-SLIPPAGE_EXIT = None   # if None -> use SLIPPAGE
-
 MAX_RISK_PER_TRADE = 0.005
 
-# Execution delay metadata (not implemented yet)
-# Could be "None", "1 bar", "200ms", etc.
-EXECUTION_DELAY = "None"
+# Slippage (metadata + future logic)
+SLIPPAGE = 0.1
+SLIPPAGE_ENTRY = None  # if None -> SLIPPAGE
+SLIPPAGE_EXIT = None   # if None -> SLIPPAGE
 
-# Order types (metadata now; logic later)
-# Use: "market" | "limit"
-ENTRY_ORDER_TYPE_DEFAULT = "market"
+# Execution / order semantics (metadata for now)
+EXECUTION_DELAY = "None"  # e.g. "1 bar", "200ms"
+
+ENTRY_ORDER_TYPE_DEFAULT = "market"   # "market" | "limit"
 EXIT_ORDER_TYPE_DEFAULT = "limit"
 TP_ORDER_TYPE_DEFAULT = "limit"
 
+EXIT_OVERRIDES_DESC = (
+    "SL/BE/EOD treated as market exits; "
+    "TP exits treated as limit (strategy-dependent)."
+)
 
-# explanation for report (avoid wrong claims)
-EXIT_OVERRIDES_DESC = "SL/BE/EOD treated as market exits; TP exits treated as limit (strategy-dependent)."
-
-# Spread model metadata:
-# - "fixed_cost_overlay" (current reality: compute spread_usd_* from per-instrument fixed spreads)
-# - "bid_ask_simulation" (future: actual bid/ask price simulation in fills)
-SPREAD_MODEL = "fixed_cost_overlay"
-
-
-
+SPREAD_MODEL = "fixed_cost_overlay"  # or "bid_ask_simulation"
 
 # ==================================================
-# CAPITAL MODEL (REPORT / FUTURE CONTROLS)
+# CAPITAL & RISK MODEL (REPORTING / FUTURE)
 # ==================================================
 
-# Position sizing model label for report
 POSITION_SIZING_MODEL = "Risk-based sizing (position_sizer)"
 
-# (FUTURE  IDEA)Leverage is metadata unless you  model margin / leverage constraints
 LEVERAGE = "1x"
 
-# (FUTURE  IDEA) Concurrency
-MAX_CONCURRENT_POSITIONS = None  # None => Unlimited (diagnostic)
+MAX_CONCURRENT_POSITIONS = None  # None = unlimited (diagnostic)
 
-# (FUTURE  IDEA) Kill-switch / capital floor
-CAPITAL_FLOOR = None  # e.g. 5000, or None
+CAPITAL_FLOOR = None  # e.g. 5000
 
 # ==================================================
-# OUTPUT / UI
+# REPORTING & ANALYTICS
 # ==================================================
 
-SAVE_TRADES_CSV = False
-PLOT_ONLY = False
+# Enable / disable reporting entirely
+ENABLE_REPORT = True
+
+# ---- STDOUT rendering control ----
+class StdoutMode(str, Enum):
+    OFF = "off"
+    CONSOLE = "console"
+    FILE = "file"
+    BOTH = "both"
+
+REPORT_STDOUT_MODE = StdoutMode.OFF
+
+# Used only if FILE or BOTH
+REPORT_STDOUT_FILE = "results/stdout_report.txt"
+
+# ---- Dashboard / persistence ----
+GENERATE_DASHBOARD = True
+PERSIST_REPORT = True
+
+# Fail if no trades (research safety)
+REPORT_FAIL_ON_EMPTY = True
+
+# ==================================================
+# RUNTIME / DEBUG
+# ==================================================
+
+PLOT_ONLY = False          # Skip backtest, just plots
+SAVE_TRADES_CSV = False   # Legacy / debug only
+
+from config.logger_config import LoggerConfig
+
+LOGGER_CONFIG = LoggerConfig(
+    stdout=True,
+    file=True,
+    timing=True,
+    profiling=False,
+    log_dir=Path("results/logs"),
+)
+
+PROFILING = True
+
+USE_MULTIPROCESSING_STRATEGIES = False
+USE_MULTIPROCESSING_BACKTESTS = True
+
+MAX_WORKERS_STRATEGIES = None     # None = os.cpu_count()
+MAX_WORKERS_BACKTESTS = None

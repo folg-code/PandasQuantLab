@@ -16,7 +16,12 @@ class ExecutionPolicy:
         self.exit_default_type = exit_default_type
         self.exit_signal_column = exit_signal_column
 
-    def classify_exit_type(self, exit_reason: str, has_exit_signal: bool = False, exit_signal_value: bool = False) -> str:
+    def classify_exit_type(
+            self,
+            exit_reason: str,
+            has_exit_signal: bool = False,
+            exit_signal_value: bool = False
+    ) -> str:
         if has_exit_signal and exit_signal_value:
             return EXEC_MARKET
 

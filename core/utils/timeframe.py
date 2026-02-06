@@ -30,3 +30,21 @@ def timeframe_to_pandas_freq(timeframe: str) -> str:
         return f"{int(tf[1:])}D"
 
     raise ValueError(f"Unsupported timeframe: {timeframe}")
+
+
+def tf_to_minutes(tf: str) -> int:
+    tf = tf.strip().upper()
+
+    if tf.startswith("M"):
+        return int(tf[1:])
+
+    if tf.startswith("H"):
+        return int(tf[1:]) * 60
+
+    if tf.startswith("D"):
+        return int(tf[1:]) * 1440
+
+    if tf.startswith("W"):
+        return int(tf[1:]) * 10080
+
+    raise ValueError(f"Unsupported timeframe: {tf}")

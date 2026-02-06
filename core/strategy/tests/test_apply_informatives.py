@@ -26,9 +26,7 @@ def test_apply_informatives_merges_htf():
     out = apply_informatives(
         df=df,
         strategy=strat,
-        provider=DummyProvider(),
-        symbol="XAUUSD",
-        startup_candle_count=10,
+        data_by_tf={"M30":df},
     )
 
     assert any(c.endswith("_M30") for c in out.columns)

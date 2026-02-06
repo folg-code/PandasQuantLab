@@ -85,7 +85,7 @@ class PriceActionTrendRegimeBatched:
         if self.vol_required:
             high_vol = (
                 (struct_vol.get(
-                    "bos_bull_struct_vol", pd.Series(False, index=idx)) == "high")
+                "bos_bull_struct_vol", pd.Series(False, index=idx)) == "high")
                 | (struct_vol.get(
                 "bos_bear_struct_vol", pd.Series(False, index=idx)) == "high")
                 | (struct_vol.get(

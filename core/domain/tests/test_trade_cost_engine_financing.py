@@ -33,6 +33,6 @@ def test_financing_is_zero_when_disabled(monkeypatch):
         slippage_abs=0.0,
     )
 
-    engine.enrich(trade, df=None, ctx=ctx)
+    engine.apply(trade, df=None, ctx=ctx)
 
     assert trade["financing_usd_total"] == 0.0

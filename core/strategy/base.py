@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from core.backtesting.reporting.config.report_config import ReportConfig
-from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
+from core.reporting.config.report_spec import StrategyReportSpec
+from core.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
 from core.strategy.plan_builder import PlanBuildContext, build_trade_plan_from_row, build_plans_frame
 from core.strategy.trade_plan import TradePlan, TradeAction
 
@@ -33,15 +35,31 @@ class BaseStrategy(ABC):
         symbol: str,
         strategy_config: Optional[Dict[str, Any]] = None,
         startup_candle_count: int = 0,
+        strategy_name: str = None
     ):
         self.df = df
         self.symbol = symbol
         self.strategy_config = strategy_config or {}
         self.startup_candle_count = startup_candle_count
+        self.strategy_name = strategy_name
 
     # ==================================================
     # Informatives (DECLARATION ONLY)
     # ==================================================
+
+    def get_strategy_name(self) -> str:
+        return self.strategy_name or type(self).__name__
+
+    def get_strategy_id(self) -> str:
+        """
+        Stable strategy identifier based on config.
+        """
+        raw = {
+            "class": type(self).__name__,
+            "config": self.strategy_config,
+        }
+        payload = json.dumps(raw, sort_keys=True)
+        return hashlib.md5(payload.encode()).hexdigest()[:8]
 
     @classmethod
     def get_required_informatives(cls) -> List[str]:
@@ -113,9 +131,9 @@ class BaseStrategy(ABC):
         if "time" not in self.df.columns:
             raise ValueError("Strategy DF must contain 'time' column")
 
-    def build_report_config(self):
+    def build_report_spec(self):
         return (
-            ReportConfig()
+            StrategyReportSpec()
             .add_metric(ExpectancyMetric())
             .add_metric(MaxDrawdownMetric())
         )

@@ -1,0 +1,27 @@
+from dataclasses import dataclass, field
+from typing import List
+
+from core.reporting.core.base import BaseMetric
+from core.reporting.core.context import ContextSpec
+
+
+@dataclass
+class StrategyReportSpec:
+    """
+    Declarative report specification provided by a strategy.
+
+    Defines:
+    - which metrics should be computed
+    - which contextual features should be attached to trades
+    """
+
+    metrics: List[BaseMetric] = field(default_factory=list)
+    contexts: List[ContextSpec] = field(default_factory=list)
+
+    def add_metric(self, metric: BaseMetric) -> "StrategyReportSpec":
+        self.metrics.append(metric)
+        return self
+
+    def add_context(self, context: ContextSpec) -> "StrategyReportSpec":
+        self.contexts.append(context)
+        return self

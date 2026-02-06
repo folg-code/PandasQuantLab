@@ -1,13 +1,14 @@
 import pandas as pd
 import talib.abstract as ta
 
-from core.backtesting.reporting.core.context import ContextSpec
-from core.backtesting.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
+from core.reporting.core.context import ContextSpec
+from core.reporting.core.metrics import ExpectancyMetric, MaxDrawdownMetric
 from FeatureEngineering.MarketStructure.engine import MarketStructureEngine
 from core.strategy.base import BaseStrategy
 from core.strategy.informatives import informative
 
 class Samplestrategy(BaseStrategy):
+    strategy_name = "Sample Strategy (Report)"
 
     def __init__(
             self,
@@ -28,21 +29,9 @@ class Samplestrategy(BaseStrategy):
         # --- minimum techniczne
         df["atr"] = ta.ATR(df, 14)
 
-        # --- market structure HTF
-        df = MarketStructureEngine.apply(
-            df,
-            features=[
-                "pivots",
-                "price_action",
-                "follow_through",
-                "structural_vol",
-                "trend_regime",
-            ],
-        )
 
-        # --- bias flags (czytelne na GitHubie)
-        df["bias_long"] = df["trend_regime"] == "trend_up"
-        df["bias_short"] = df["trend_regime"] == "trend_down"
+
+
 
         return df
 
@@ -53,17 +42,7 @@ class Samplestrategy(BaseStrategy):
         # --- base indicators
         df["atr"] = ta.ATR(df, 14)
 
-        # --- market structure
-        df = MarketStructureEngine.apply(
-            df,
-            features=[
-                "pivots",
-                "price_action",
-                "follow_through",
-                "structural_vol",
-                "trend_regime",
-            ],
-        )
+
 
         df['low_15'] = df['low'].rolling(15).min()
         df['high_15'] = df['high'].rolling(15).max()
@@ -135,8 +114,6 @@ class Samplestrategy(BaseStrategy):
             axis=1
         )
 
-        print(df["signal_entry"].notna().sum())
-
         self.df = df
 
 
@@ -144,10 +121,10 @@ class Samplestrategy(BaseStrategy):
 
         return df
 
-    def build_report_config(self):
+    def build_report_spec(self):
         return (
             super()
-            .build_report_config()
+            .build_report_spec()
             .add_metric(ExpectancyMetric())
             .add_metric(MaxDrawdownMetric())
             .add_context(

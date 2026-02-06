@@ -4,7 +4,7 @@ import pytest
 
 from core.domain.execution.exit_processor import ExitProcessor
 from core.domain.trade.trade_exit import TradeExitReason
-from core.backtesting.simulate_exit_numba import EXIT_SL, EXIT_TP2
+from core.backtesting.exit.simulate_exit_numba import EXIT_SL, EXIT_TP2
 
 
 def test_exit_processor_sl():
