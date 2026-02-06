@@ -10,7 +10,7 @@ def setup_logging():
     os.makedirs("logs", exist_ok=True)
 
     formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+        "%(asctime)s | %(levelname)s | %(message)s"
     )
 
     file_handler = RotatingFileHandler(
@@ -27,9 +27,11 @@ def setup_logging():
 
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
-    root.handlers = [file_handler, console]
+    root.handlers.clear()
+    root.addHandler(file_handler)
+    root.addHandler(console)
 
-setup_logging()
 
 if __name__ == "__main__":
+    setup_logging()
     LiveTradingRunner(cfg).run()

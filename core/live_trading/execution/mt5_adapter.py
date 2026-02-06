@@ -10,24 +10,22 @@ class MT5Adapter:
     """
 
     def __init__(
-        self,
-        *,
-        login: int | None = None,
-        password: str | None = None,
-        server: str | None = None,
-        dry_run: bool = False,
+            self,
+            *,
+            dry_run: bool = False,
+            log,
     ):
         self.dry_run = dry_run
+        self.log = log
 
         if self.dry_run:
-            print("⚠ MT5Adapter running in DRY-RUN mode")
+            self.log.warning("MT5Adapter running in DRY-RUN mode")
             return
 
         if not mt5.terminal_info():
             raise RuntimeError("MT5 terminal not initialized")
 
-        print("🟢 MT5 initialized")
-
+        self.log.info("MT5 initialized")
     # ==================================================
     # Execution API
     # ==================================================
@@ -43,7 +41,7 @@ class MT5Adapter:
     ) -> Dict[str, Any]:
 
         if self.dry_run:
-            print(
+            self.log.debug(
                 f"[DRY-RUN] OPEN {symbol} {direction} "
                 f"vol={volume} sl={sl} tp={tp}"
             )
@@ -141,7 +139,7 @@ class MT5Adapter:
     ) -> None:
 
         if self.dry_run:
-            print(f"[DRY-RUN] CLOSE ticket={ticket} price={price}")
+            self.log.debug(f"[DRY-RUN] CLOSE ticket={ticket} price={price}")
             return
 
         positions = mt5.positions_get(ticket=int(ticket))
@@ -176,7 +174,7 @@ class MT5Adapter:
 
     def close_partial(self, *, ticket: str, volume: float, price: float):
         if self.dry_run:
-            print(f"[DRY-RUN] PARTIAL CLOSE ticket={ticket} vol={volume} price={price}")
+            self.log.debug(f"[DRY-RUN] PARTIAL CLOSE ticket={ticket} vol={volume} price={price}")
             return
 
         request = {
@@ -195,7 +193,7 @@ class MT5Adapter:
 
     def modify_sl(self, *, ticket: str, new_sl: float):
         if self.dry_run:
-            print(f"[DRY-RUN] MODIFY SL ticket={ticket} sl={new_sl}")
+            self.log.debug(f"[DRY-RUN] MODIFY SL ticket={ticket} sl={new_sl}")
             return
 
         request = {
@@ -214,7 +212,7 @@ class MT5Adapter:
             raise RuntimeError(f"MT5 init failed: {mt5.last_error()}")
 
         info = mt5.account_info()
-        print(
+        self.log.debug(
             "🟢 MT5 initialized | "
             f"Account={info.login} "
             f"Balance={info.balance} "
@@ -224,4 +222,4 @@ class MT5Adapter:
     def shutdown(self):
         if not self.dry_run:
             mt5.shutdown()
-            print("🔴 MT5 shutdown")
+            self.log.debug("🔴 MT5 shutdown")
